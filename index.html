@@ -58,6 +58,10 @@
             font-weight: 500;
         }
         select.token-selector { -webkit-appearance: none; appearance: none; } /* Hide default arrow */
+        .max-button {
+            background-color: #4f46e5; color: white; border: none; padding: 0 8px; border-radius: 4px;
+            font-size: 0.75rem; font-weight: bold; cursor: pointer; margin-left: 8px;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white antialiased">
@@ -83,11 +87,13 @@
                 
                 <div id="status-container"></div>
                 
-                <!-- From Section -->
                 <div class="token-input-card">
                     <div class="flex justify-between items-center mb-2 text-sm text-gray-400">
                         <span>From</span>
-                        <span id="from-balance">Balance: 0.0</span>
+                        <div class="flex items-center">
+                            <span id="from-balance">Balance: 0.0</span>
+                            <button id="max-btn" class="max-button ml-2">MAX</button>
+                        </div>
                     </div>
                     <div class="token-input-container">
                         <input type="number" placeholder="0.0" class="token-input" id="from-amount" />
@@ -97,10 +103,9 @@
                 </div>
 
                 <div class="swap-arrow" id="swap-direction">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" transform="rotate(90 10 10)"></path></svg>
+                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 12l-4-4m4 4l4-4m6 8v12m0-12l-4 4m4-4l4 4"></path></svg>
                 </div>
 
-                <!-- To Section -->
                 <div class="token-input-card">
                     <div class="flex justify-between items-center mb-2 text-sm text-gray-400">
                         <span>To (estimated)</span>
@@ -129,7 +134,7 @@
 
     <script type="module">
         let currentUser, currentProvider, currentSigner, currentQuote;
-        let allChains = [], allTokens = {};
+        let allChains = [], allTokens = {}, currentBalance = '0';
 
         const LIFI_API_URL = 'https://li.quest/v1';
         const INTEGRATOR_NAME = 'Timax_swap';
@@ -169,7 +174,7 @@
             balanceEl.textContent = 'Balance: ...';
 
             const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
-            if (!token) return;
+            if (!token) { balanceEl.textContent = 'Balance: -'; return; }
 
             try {
                 let balanceBN;
@@ -179,11 +184,12 @@
                     const tokenContract = new ethers.Contract(token.address, ['function balanceOf(address) view returns (uint256)'], currentProvider);
                     balanceBN = await tokenContract.balanceOf(currentUser.wallet.address);
                 }
-                const formattedBalance = parseFloat(ethers.utils.formatUnits(balanceBN, token.decimals)).toFixed(4);
-                balanceEl.textContent = `Balance: ${formattedBalance}`;
+                currentBalance = ethers.utils.formatUnits(balanceBN, token.decimals);
+                balanceEl.textContent = `Balance: ${parseFloat(currentBalance).toFixed(4)}`;
             } catch (error) {
                 console.error("Failed to get balance", error);
                 balanceEl.textContent = `Balance: -`;
+                currentBalance = '0';
             }
         };
 
@@ -206,7 +212,7 @@
                 const populateTokens = (chainId, elementId) => {
                     const dropdown = document.getElementById(elementId);
                     dropdown.innerHTML = '';
-                    allTokens[chainId]?.slice(0, 15).forEach(token => {
+                    allTokens[chainId]?.slice(0, 50).forEach(token => { // Increased token options
                         dropdown.add(new Option(token.symbol, token.symbol));
                     });
                 }
@@ -223,34 +229,40 @@
         
         const getQuote = async () => {
             currentQuote = null;
-            const fromChain = document.getElementById('from-chain').value;
-            const toChain = document.getElementById('to-chain').value;
-            const fromTokenSymbol = document.getElementById('from-token').value;
-            const toTokenSymbol = document.getElementById('to-token').value;
-            const fromAmount = fromAmountInput.value;
-            
-            if (!fromAmount || !currentUser) return;
+            let fromAmount = fromAmountInput.value;
+            if (!fromAmount || !currentUser || parseFloat(fromAmount) <= 0) return;
             
             showStatus('🔄 Getting best route...', 'loading');
             swapBtn.disabled = true; swapBtn.textContent = 'Getting Quote...';
             document.getElementById('route-info').classList.add('hidden');
             
+            const fromChain = document.getElementById('from-chain').value;
+            const toChain = document.getElementById('to-chain').value;
+            const fromTokenSymbol = document.getElementById('from-token').value;
+            const toTokenSymbol = document.getElementById('to-token').value;
+            
             const fromToken = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
-            if (!fromToken) { showStatus('Invalid "from" token.', 'error'); return; }
-
-            const fromAmountInSmallestUnit = ethers.utils.parseUnits(fromAmount, fromToken.decimals);
-
-            const params = new URLSearchParams({
-                fromChain, toChain, fromToken: fromTokenSymbol, toToken: toTokenSymbol,
-                fromAddress: currentUser.wallet.address, fromAmount: fromAmountInSmallestUnit.toString(),
-                integrator: INTEGRATOR_NAME, fee: 0.005,
-            });
+            if (!fromToken) { showStatus('Invalid "from" token selected.', 'error'); updateSwapButton(false); return; }
 
             try {
+                // Sanitize input to prevent ethers errors
+                const parts = fromAmount.split('.');
+                if (parts[1] && parts[1].length > fromToken.decimals) {
+                    fromAmount = parts[0] + '.' + parts[1].substring(0, fromToken.decimals);
+                }
+
+                const fromAmountInSmallestUnit = ethers.utils.parseUnits(fromAmount, fromToken.decimals);
+
+                const params = new URLSearchParams({
+                    fromChain, toChain, fromToken: fromTokenSymbol, toToken: toTokenSymbol,
+                    fromAddress: currentUser.wallet.address, fromAmount: fromAmountInSmallestUnit.toString(),
+                    integrator: INTEGRATOR_NAME, fee: 0.005,
+                });
+                
                 const response = await fetch(`${LIFI_API_URL}/quote?${params}`);
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                    throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
                 }
                 const quote = await response.json();
                 
@@ -272,7 +284,7 @@
 
             } catch (error) {
                 console.error('Quote error:', error);
-                showStatus(`❌ ${error.message}`, 'error');
+                showStatus(`❌ ${error.message || 'Failed to get quote.'}`, 'error');
                 updateSwapButton(false);
             }
         };
@@ -301,7 +313,6 @@
         const connectWallet = async () => {
             if (typeof window.ethereum === 'undefined') { showStatus('❌ Please install MetaMask!', 'error'); return; }
             try {
-                showStatus('🔄 Connecting wallet...', 'loading');
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 
                 currentProvider = new ethers.providers.Web3Provider(window.ethereum);
@@ -311,7 +322,6 @@
                 currentUser = { wallet: { address } };
                 document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
                 showScreen('widget-screen');
-                hideStatus();
                 updateSwapButton(false);
                 updateBalance();
             } catch (error) {
@@ -333,6 +343,10 @@
             fromAmountInput.addEventListener('input', () => {
                 currentQuote = null;
                 document.getElementById('route-info').classList.add('hidden');
+                updateSwapButton(false);
+            });
+            document.getElementById('max-btn').addEventListener('click', () => {
+                fromAmountInput.value = currentBalance;
                 updateSwapButton(false);
             });
         });
