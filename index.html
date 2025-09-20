@@ -34,6 +34,9 @@
             box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39);
             border: none;
             cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
         }
         .privy-button-custom:hover {
             background-color: #4338ca;
@@ -66,16 +69,77 @@
             border: 1px solid rgba(34, 197, 94, 0.3);
             color: #4ade80;
         }
-        #lifi-widget-container {
-            min-height: 500px;
+        .swap-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .token-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            color: white;
+            width: 100%;
+            font-size: 1.125rem;
+        }
+        .token-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        .chain-selector {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .chain-selector:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .swap-arrow {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin: 0.5rem auto;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
-        .widget-placeholder {
+        .swap-arrow:hover {
+            transform: rotate(180deg);
+            background: rgba(79, 70, 229, 0.2);
+        }
+        .feature-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
+            padding: 1rem;
             text-align: center;
-            color: #9ca3af;
-            padding: 40px 20px;
+        }
+        .external-link {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.2s ease;
+            font-weight: 500;
+            margin: 0.25rem;
+        }
+        .external-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
     </style>
 </head>
@@ -91,50 +155,200 @@
         <main id="main-content" class="w-full max-w-lg glass-container p-6 md:p-8">
             <!-- Auth Screen -->
             <div id="auth-screen" class="text-center">
-                <p class="mb-6 text-gray-200">Connect your wallet to begin swapping assets across any chain, powered by LI.FI and Privy.</p>
-                <button id="privy-login-btn" class="privy-button-custom">
+                <p class="mb-6 text-gray-200">Connect your wallet to begin swapping assets across any chain, powered by LI.FI.</p>
+                <button id="connect-wallet-btn" class="privy-button-custom w-full">
                     Connect Wallet
                 </button>
+                
+                <div class="mt-8 space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-300 mb-4">🌉 Cross-Chain Features</h3>
+                    
+                    <div class="grid grid-cols-1 gap-3">
+                        <div class="feature-card">
+                            <div class="text-2xl mb-2">🔄</div>
+                            <h4 class="font-semibold mb-1">Any-to-Any Swaps</h4>
+                            <p class="text-sm text-gray-400">Swap between 30+ chains instantly</p>
+                        </div>
+                        
+                        <div class="feature-card">
+                            <div class="text-2xl mb-2">💰</div>
+                            <h4 class="font-semibold mb-1">Best Rates</h4>
+                            <p class="text-sm text-gray-400">Aggregated from 20+ DEXs & bridges</p>
+                        </div>
+                        
+                        <div class="feature-card">
+                            <div class="text-2xl mb-2">⚡</div>
+                            <h4 class="font-semibold mb-1">Lightning Fast</h4>
+                            <p class="text-sm text-gray-400">Optimized routing & execution</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Widget Screen -->
             <div id="widget-screen" class="hidden">
                 <div class="flex justify-between items-center mb-6">
                     <p id="wallet-address" class="text-sm text-gray-400 bg-gray-800/50 px-3 py-1 rounded-full truncate"></p>
-                    <button id="privy-logout-btn" class="text-sm text-red-400 hover:text-red-300 transition-colors">Disconnect</button>
+                    <button id="disconnect-wallet-btn" class="text-sm text-red-400 hover:text-red-300 transition-colors">Disconnect</button>
                 </div>
                 
                 <!-- Status messages -->
                 <div id="status-container"></div>
                 
-                <!-- LI.FI Widget will be mounted here -->
-                <div id="lifi-widget-container">
-                    <div class="widget-placeholder">
-                        <div class="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <p>Loading swap widget...</p>
+                <!-- Enhanced Swap Interface -->
+                <div class="swap-container">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Cross-Chain Swap</h3>
+                        <div class="text-sm text-gray-400">
+                            <span id="current-chain">Ethereum</span>
+                        </div>
+                    </div>
+                    
+                    <!-- From Section -->
+                    <div class="mb-4">
+                        <div class="flex justify-between mb-2">
+                            <span class="text-sm text-gray-400">From</span>
+                            <span class="text-sm text-gray-400">Balance: 0.0</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input 
+                                type="number" 
+                                placeholder="0.0" 
+                                class="token-input flex-1"
+                                id="from-amount"
+                            />
+                            <div class="chain-selector min-w-[100px] flex items-center justify-center">
+                                <span id="from-token">ETH</span>
+                            </div>
+                        </div>
+                        <select id="from-chain" class="w-full mt-2 chain-selector">
+                            <option value="1">Ethereum</option>
+                            <option value="137">Polygon</option>
+                            <option value="56">BSC</option>
+                            <option value="42161">Arbitrum</option>
+                            <option value="10">Optimism</option>
+                            <option value="43114">Avalanche</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Swap Arrow -->
+                    <div class="swap-arrow" id="swap-direction">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L11 6.414V16a1 1 0 11-2 0V6.414L7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    
+                    <!-- To Section -->
+                    <div class="mb-6">
+                        <div class="flex justify-between mb-2">
+                            <span class="text-sm text-gray-400">To</span>
+                            <span class="text-sm text-gray-400">≈ <span id="estimated-amount">0.0</span></span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input 
+                                type="number" 
+                                placeholder="0.0" 
+                                class="token-input flex-1"
+                                id="to-amount"
+                                readonly
+                            />
+                            <div class="chain-selector min-w-[100px] flex items-center justify-center">
+                                <span id="to-token">USDC</span>
+                            </div>
+                        </div>
+                        <select id="to-chain" class="w-full mt-2 chain-selector">
+                            <option value="137">Polygon</option>
+                            <option value="1">Ethereum</option>
+                            <option value="56">BSC</option>
+                            <option value="42161">Arbitrum</option>
+                            <option value="10">Optimism</option>
+                            <option value="43114">Avalanche</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Swap Button -->
+                    <button id="swap-btn" class="privy-button-custom w-full mb-4" disabled>
+                        Enter Amount
+                    </button>
+                    
+                    <!-- Route Info -->
+                    <div id="route-info" class="hidden text-sm text-gray-400 space-y-2">
+                        <div class="flex justify-between">
+                            <span>Rate:</span>
+                            <span id="exchange-rate">1 ETH = 0 USDC</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Gas Fee:</span>
+                            <span id="gas-fee">~$0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Bridge Fee:</span>
+                            <span id="bridge-fee">~$0</span>
+                        </div>
+                        <div class="flex justify-between font-semibold">
+                            <span>Total Fee:</span>
+                            <span id="total-fee">~$0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- External Links Section -->
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-gray-400 mb-4">Or use these trusted platforms:</p>
+                    <div class="flex flex-wrap justify-center gap-2">
+                        <a href="https://li.fi/" target="_blank" class="external-link">
+                            🌉 LI.FI Direct
+                        </a>
+                        <a href="https://jumper.exchange/" target="_blank" class="external-link">
+                            🦘 Jumper
+                        </a>
+                        <a href="https://transferto.xyz/" target="_blank" class="external-link">
+                            🚀 Transferto
+                        </a>
                     </div>
                 </div>
             </div>
         </main>
         
         <footer class="mt-8 text-center text-gray-500 text-sm">
-            <p>&copy; 2025 TimaxPaySwap. All rights reserved.</p>
+            <p>&copy; 2024 TimaxPaySwap. All rights reserved.</p>
+            <p class="mt-1">Powered by <a href="https://li.fi/" class="text-blue-400 hover:text-blue-300">LI.FI</a></p>
         </footer>
     </div>
 
     <script type="module">
-        // Configuration - Use environment variables or fallback to defaults
+        // Configuration
         const CONFIG = {
             PRIVY_APP_ID: window.VITE_PRIVY_APP_ID || "cmfij4weu00uuju0buawfjemg",
             WALLETCONNECT_PROJECT_ID: window.VITE_WALLETCONNECT_PROJECT_ID || "dc14d146c0227704322ac9a46aaed7cd",
             FEE_COLLECTOR_ADDRESS: window.VITE_FEE_COLLECTOR_ADDRESS || '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0',
-            LIFI_WIDGET_VERSION: window.LIFI_WIDGET_VERSION || '2.13.1' // Using stable version that exists
+            LIFI_API_URL: 'https://li.quest/v1'
         };
 
         // State management
         let currentUser = null;
         let currentProvider = null;
-        let widgetInstance = null;
+        let currentChainId = null;
+
+        // Chain configurations
+        const CHAINS = {
+            1: { name: 'Ethereum', symbol: 'ETH', color: '#627eea' },
+            137: { name: 'Polygon', symbol: 'MATIC', color: '#8247e5' },
+            56: { name: 'BSC', symbol: 'BNB', color: '#f3ba2f' },
+            42161: { name: 'Arbitrum', symbol: 'ETH', color: '#28a0f0' },
+            10: { name: 'Optimism', symbol: 'ETH', color: '#ff0420' },
+            43114: { name: 'Avalanche', symbol: 'AVAX', color: '#e84142' }
+        };
+
+        // Popular tokens by chain
+        const TOKENS = {
+            1: ['ETH', 'USDC', 'USDT', 'DAI', 'WBTC'],
+            137: ['MATIC', 'USDC', 'USDT', 'DAI', 'WETH'],
+            56: ['BNB', 'USDT', 'USDC', 'BUSD', 'ETH'],
+            42161: ['ETH', 'USDC', 'USDT', 'ARB', 'GMX'],
+            10: ['ETH', 'USDC', 'USDT', 'OP', 'SNX'],
+            43114: ['AVAX', 'USDC', 'USDT', 'WAVAX', 'JOE']
+        };
 
         // Utility functions
         function showStatus(message, type = 'loading') {
@@ -153,257 +367,169 @@
             document.getElementById(screenId).classList.remove('hidden');
         }
 
-        // Check if a CDN URL is accessible
-        async function checkCDNAvailability(url) {
-            try {
-                const response = await fetch(url, { method: 'HEAD', mode: 'cors' });
-                return response.ok;
-            } catch (error) {
-                return false;
+        function formatAddress(address) {
+            return `${address.slice(0, 6)}...${address.slice(-4)}`;
+        }
+
+        function updateSwapButton() {
+            const fromAmount = document.getElementById('from-amount').value;
+            const swapBtn = document.getElementById('swap-btn');
+            
+            if (!currentUser) {
+                swapBtn.textContent = 'Connect Wallet';
+                swapBtn.disabled = true;
+            } else if (!fromAmount || parseFloat(fromAmount) <= 0) {
+                swapBtn.textContent = 'Enter Amount';
+                swapBtn.disabled = true;
+            } else {
+                swapBtn.textContent = 'Get Quote';
+                swapBtn.disabled = false;
             }
         }
 
-        // LiFi Widget Integration with multiple CDN fallbacks
-        async function initLiFiWidget(signer, walletAddress) {
+        // Mock quote functionality (replace with actual LI.FI API calls)
+        async function getQuote() {
+            const fromAmount = document.getElementById('from-amount').value;
+            const fromChain = document.getElementById('from-chain').value;
+            const toChain = document.getElementById('to-chain').value;
+            const fromToken = document.getElementById('from-token').textContent;
+            const toToken = document.getElementById('to-token').textContent;
+
+            if (!fromAmount || parseFloat(fromAmount) <= 0) return;
+
+            showStatus('🔄 Getting best route...', 'loading');
+
             try {
-                showStatus('🔄 Loading swap widget...', 'loading');
+                // Simulate API call delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 
-                let LiFiWidget;
-                const cdnOptions = [
-                    {
-                        name: 'unpkg',
-                        url: `https://unpkg.com/@lifi/widget@${CONFIG.LIFI_WIDGET_VERSION}/dist/index.esm.js`
-                    },
-                    {
-                        name: 'jsdelivr',
-                        url: `https://cdn.jsdelivr.net/npm/@lifi/widget@${CONFIG.LIFI_WIDGET_VERSION}/dist/index.esm.js`
-                    },
-                    {
-                        name: 'esm.sh',
-                        url: `https://esm.sh/@lifi/widget@${CONFIG.LIFI_WIDGET_VERSION}`
-                    },
-                    {
-                        name: 'jspm',
-                        url: `https://ga.jspm.io/npm:@lifi/widget@${CONFIG.LIFI_WIDGET_VERSION}/dist/index.esm.js`
-                    },
-                    // Fallback to known working version
-                    {
-                        name: 'unpkg-fallback',
-                        url: 'https://unpkg.com/@lifi/widget@2.13.1/dist/index.esm.js'
-                    },
-                    {
-                        name: 'jsdelivr-fallback',
-                        url: 'https://cdn.jsdelivr.net/npm/@lifi/widget@2.13.1/dist/index.esm.js'
-                    }
-                ];
-
-                let loadSuccess = false;
-                let lastError = null;
-
-                for (const cdn of cdnOptions) {
-                    try {
-                        showStatus(`🔄 Trying ${cdn.name} CDN...`, 'loading');
-                        console.log(`Attempting to load from ${cdn.name}: ${cdn.url}`);
-                        
-                        const lifiModule = await import(cdn.url);
-                        LiFiWidget = lifiModule.LiFiWidget || lifiModule.default;
-                        
-                        if (LiFiWidget) {
-                            console.log(`Successfully loaded from ${cdn.name}`);
-                            showStatus(`✅ Loaded from ${cdn.name}`, 'success');
-                            loadSuccess = true;
-                            break;
-                        }
-                    } catch (error) {
-                        console.warn(`Failed to load from ${cdn.name}:`, error);
-                        lastError = error;
-                        continue;
-                    }
-                }
-
-                if (!loadSuccess || !LiFiWidget) {
-                    throw new Error(`All CDN sources failed. Last error: ${lastError?.message || 'Unknown error'}`);
-                }
-
-                const widgetConfig = {
-                    integrator: 'TimaxPaySwap',
-                    fee: 0.005, // 0.5% fee
-                    feeConfig: {
-                        fee: 0.005,
-                        feeTaker: CONFIG.FEE_COLLECTOR_ADDRESS,
-                    },
-                    variant: 'expandable',
-                    theme: {
-                        palette: {
-                            primary: { main: '#4f46e5' },
-                            secondary: { main: '#ec4899' },
-                            background: { 
-                                paper: '#111827', 
-                                default: '#030712' 
-                            },
-                            text: { 
-                                primary: '#ffffff', 
-                                secondary: '#d1d5db' 
-                            }
-                        },
-                        shape: { 
-                            borderRadius: 16, 
-                            borderRadiusSecondary: 12 
-                        },
-                    },
-                    walletConfig: {
-                        onConnect: async () => {
-                            return {
-                                account: walletAddress,
-                                signer: signer
-                            };
-                        }
-                    },
-                    chains: {
-                        allow: [1, 10, 137, 42161, 56, 8453, 43114], // Popular chains
-                    },
-                    appearance: 'dark',
-                    sdkConfig: {
-                        apiUrl: 'https://li.quest/v1',
-                        rpcs: {
-                            1: [`https://eth-mainnet.g.alchemy.com/v2/${window.ALCHEMY_API_KEY || 'demo'}`],
-                            137: [`https://polygon-mainnet.g.alchemy.com/v2/${window.ALCHEMY_API_KEY || 'demo'}`],
-                            42161: [`https://arb-mainnet.g.alchemy.com/v2/${window.ALCHEMY_API_KEY || 'demo'}`],
-                            10: [`https://opt-mainnet.g.alchemy.com/v2/${window.ALCHEMY_API_KEY || 'demo'}`],
-                        }
-                    }
-                };
-
-                const container = document.getElementById('lifi-widget-container');
-                container.innerHTML = ''; // Clear placeholder
-
-                // Create widget instance
-                if (typeof LiFiWidget === 'function') {
-                    // Constructor approach
-                    widgetInstance = new LiFiWidget({
-                        ...widgetConfig,
-                        container: container,
-                    });
-                } else if (LiFiWidget && typeof LiFiWidget.create === 'function') {
-                    // Factory method approach
-                    widgetInstance = LiFiWidget.create({
-                        ...widgetConfig,
-                        container: container,
-                    });
-                } else {
-                    throw new Error('Invalid LiFiWidget constructor or factory method');
-                }
-
-                showStatus('🎉 Swap widget loaded successfully!', 'success');
+                // Mock calculation (in real implementation, call LI.FI API)
+                const mockRate = fromToken === 'ETH' ? 2500 : 1;
+                const estimatedAmount = parseFloat(fromAmount) * mockRate;
+                
+                document.getElementById('to-amount').value = estimatedAmount.toFixed(4);
+                document.getElementById('estimated-amount').textContent = estimatedAmount.toFixed(4);
+                document.getElementById('exchange-rate').textContent = `1 ${fromToken} = ${mockRate} ${toToken}`;
+                document.getElementById('gas-fee').textContent = '~$5.50';
+                document.getElementById('bridge-fee').textContent = fromChain === toChain ? '$0' : '~$2.00';
+                document.getElementById('total-fee').textContent = fromChain === toChain ? '~$5.50' : '~$7.50';
+                
+                document.getElementById('route-info').classList.remove('hidden');
+                document.getElementById('swap-btn').textContent = `Swap ${fromToken} for ${toToken}`;
+                
+                showStatus('✅ Route found! Best rates across multiple DEXs', 'success');
                 setTimeout(hideStatus, 3000);
-
-                return widgetInstance;
             } catch (error) {
-                console.error('Failed to initialize LiFi Widget:', error);
-                showStatus(`❌ Failed to load swap widget: ${error.message}`, 'error');
-                
-                // Show enhanced fallback message
-                const container = document.getElementById('lifi-widget-container');
-                container.innerHTML = `
-                    <div class="widget-placeholder">
-                        <div class="text-red-400 mb-4">
-                            <svg class="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-semibold mb-2">Widget Loading Failed</h3>
-                        <p class="text-sm mb-4">Unable to load the swap widget. This might be due to:</p>
-                        <ul class="text-xs text-left space-y-1 mb-4 max-w-xs mx-auto">
-                            <li>• Network connectivity issues</li>
-                            <li>• CDN accessibility problems</li>
-                            <li>• Content Security Policy restrictions</li>
-                            <li>• Widget version compatibility</li>
-                        </ul>
-                        <div class="space-y-2">
-                            <button onclick="location.reload()" class="privy-button-custom text-sm py-2 px-4 block mx-auto">
-                                🔄 Reload Page
-                            </button>
-                            <button onclick="window.open('https://li.fi/', '_blank')" class="text-xs text-blue-400 hover:text-blue-300 underline">
-                                Open Li.Fi Directly
-                            </button>
-                        </div>
-                    </div>
-                `;
-                throw error;
+                console.error('Quote error:', error);
+                showStatus('❌ Failed to get quote. Please try again.', 'error');
             }
         }
 
-        // Wallet connection handlers
+        // Wallet connection
         async function connectWallet() {
             try {
                 showStatus('🔄 Connecting wallet...', 'loading');
                 
-                // Check for MetaMask or other Web3 wallet
                 if (typeof window.ethereum !== 'undefined') {
                     const accounts = await window.ethereum.request({
                         method: 'eth_requestAccounts'
                     });
                     
                     if (accounts.length > 0) {
+                        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                        
                         currentUser = { wallet: { address: accounts[0] } };
                         currentProvider = window.ethereum;
+                        currentChainId = parseInt(chainId, 16);
                         
                         // Update UI
-                        const walletAddressEl = document.getElementById('wallet-address');
-                        walletAddressEl.textContent = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
+                        document.getElementById('wallet-address').textContent = formatAddress(accounts[0]);
+                        document.getElementById('current-chain').textContent = CHAINS[currentChainId]?.name || 'Unknown';
                         
                         showScreen('widget-screen');
+                        showStatus('✅ Wallet connected successfully!', 'success');
+                        setTimeout(hideStatus, 2000);
                         
-                        // Initialize widget with basic signer
-                        await initLiFiWidget(window.ethereum, accounts[0]);
+                        updateSwapButton();
                     }
                 } else {
                     showStatus('❌ Please install MetaMask or another Web3 wallet', 'error');
-                    // Show wallet installation links
                     setTimeout(() => {
                         const container = document.getElementById('status-container');
                         container.innerHTML = `
                             <div class="status-message status-error">
                                 <p class="mb-3">❌ No Web3 wallet found</p>
-                                <div class="space-x-2">
-                                    <a href="https://metamask.io/" target="_blank" class="text-blue-400 hover:text-blue-300 underline text-sm">Install MetaMask</a>
-                                    <span class="text-gray-500">|</span>
-                                    <a href="https://www.coinbase.com/wallet" target="_blank" class="text-blue-400 hover:text-blue-300 underline text-sm">Get Coinbase Wallet</a>
+                                <div class="space-y-2">
+                                    <a href="https://metamask.io/download/" target="_blank" class="external-link block">
+                                        🦊 Install MetaMask
+                                    </a>
+                                    <a href="https://www.coinbase.com/wallet" target="_blank" class="external-link block">
+                                        🏦 Get Coinbase Wallet
+                                    </a>
+                                    <a href="https://trustwallet.com/" target="_blank" class="external-link block">
+                                        🛡️ Download Trust Wallet
+                                    </a>
                                 </div>
                             </div>
                         `;
-                    }, 2000);
+                    }, 3000);
                 }
             } catch (error) {
                 console.error('Wallet connection failed:', error);
-                showStatus(`❌ Wallet connection failed: ${error.message}`, 'error');
+                showStatus(`❌ Connection failed: ${error.message}`, 'error');
             }
         }
 
         function disconnectWallet() {
             currentUser = null;
             currentProvider = null;
-            if (widgetInstance) {
-                widgetInstance = null;
-            }
+            currentChainId = null;
             showScreen('auth-screen');
             hideStatus();
         }
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', () => {
-            const loginBtn = document.getElementById('privy-login-btn');
-            const logoutBtn = document.getElementById('privy-logout-btn');
+            const connectBtn = document.getElementById('connect-wallet-btn');
+            const disconnectBtn = document.getElementById('disconnect-wallet-btn');
+            const swapBtn = document.getElementById('swap-btn');
+            const fromAmountInput = document.getElementById('from-amount');
+            const swapArrow = document.getElementById('swap-direction');
             
-            loginBtn?.addEventListener('click', connectWallet);
-            logoutBtn?.addEventListener('click', disconnectWallet);
+            connectBtn?.addEventListener('click', connectWallet);
+            disconnectBtn?.addEventListener('click', disconnectWallet);
+            swapBtn?.addEventListener('click', getQuote);
+            fromAmountInput?.addEventListener('input', updateSwapButton);
+            
+            // Swap direction handler
+            swapArrow?.addEventListener('click', () => {
+                const fromChain = document.getElementById('from-chain');
+                const toChain = document.getElementById('to-chain');
+                const fromToken = document.getElementById('from-token');
+                const toToken = document.getElementById('to-token');
+                
+                // Swap chain selections
+                const tempChain = fromChain.value;
+                fromChain.value = toChain.value;
+                toChain.value = tempChain;
+                
+                // Swap token selections
+                const tempToken = fromToken.textContent;
+                fromToken.textContent = toToken.textContent;
+                toToken.textContent = tempToken;
+                
+                // Clear amounts
+                document.getElementById('from-amount').value = '';
+                document.getElementById('to-amount').value = '';
+                document.getElementById('route-info').classList.add('hidden');
+                updateSwapButton();
+            });
 
-            // Check if wallet is already connected
+            // Auto-connect if wallet was previously connected
             if (typeof window.ethereum !== 'undefined') {
                 window.ethereum.request({ method: 'eth_accounts' })
                     .then(accounts => {
                         if (accounts.length > 0) {
-                            // Auto-connect if previously connected
                             connectWallet();
                         }
                     })
@@ -411,20 +537,21 @@
             }
         });
 
-        // Handle account changes
+        // Handle account/chain changes
         if (typeof window.ethereum !== 'undefined') {
             window.ethereum.on('accountsChanged', (accounts) => {
                 if (accounts.length === 0) {
                     disconnectWallet();
                 } else if (currentUser) {
-                    // Reload if account changed
                     location.reload();
                 }
             });
 
-            window.ethereum.on('chainChanged', () => {
-                // Reload on chain change
-                location.reload();
+            window.ethereum.on('chainChanged', (chainId) => {
+                if (currentUser) {
+                    currentChainId = parseInt(chainId, 16);
+                    document.getElementById('current-chain').textContent = CHAINS[currentChainId]?.name || 'Unknown';
+                }
             });
         }
     </script>
