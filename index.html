@@ -144,7 +144,7 @@
                 if (!response.ok) {
                     console.warn('Could not load Azure App Settings. Using local fallbacks.');
                     return {
-                        INTEGRATOR_NAME: 'TimaxPaySwap_Local',
+                        INTEGRATOR_NAME: 'Timax_swap',
                         FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
                     };
                 }
@@ -156,7 +156,7 @@
             } catch (error) {
                 console.warn('API for App Settings not found. Using local fallbacks.', error);
                 return {
-                    INTEGRATOR_NAME: 'TimaxPaySwap_Local',
+                    INTEGRATOR_NAME: 'Timax_swap',
                     FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
                 };
             }
