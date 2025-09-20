@@ -142,37 +142,54 @@
 
             try {
                 showStatus('⏳ Loading configuration...', 'loading');
+                console.log('Attempting to fetch from /api/getAppSettings');
                 
                 const response = await fetch('/api/getAppSettings', {
                     method: 'GET',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
                     }
                 });
 
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+
                 if (!response.ok) {
-                    console.warn(`Config API returned ${response.status}. Using fallbacks.`);
+                    console.warn(`Config API returned ${response.status}: ${response.statusText}`);
+                    
+                    // Try to get error details
+                    const errorText = await response.text();
+                    console.warn('Error response body:', errorText);
+                    
                     hideStatus();
                     return localFallbacks;
                 }
 
                 const contentType = response.headers.get("content-type");
+                console.log('Content-Type:', contentType);
+                
                 if (!contentType || !contentType.includes("application/json")) {
-                    console.warn('Config API did not return JSON. Using fallbacks.');
+                    console.warn('Config API did not return JSON content type:', contentType);
+                    
+                    // Log the actual response for debugging
+                    const responseText = await response.text();
+                    console.warn('Non-JSON response body:', responseText);
+                    
                     hideStatus();
                     return localFallbacks;
                 }
                 
                 const appSettings = await response.json();
-                console.log('✅ Successfully loaded configuration from Azure');
+                console.log('✅ Successfully loaded configuration from Azure:', appSettings);
 
                 // Parse JSON strings for arrays
                 if (appSettings.LIFI_CHAINS && typeof appSettings.LIFI_CHAINS === 'string') {
                     try { 
                         appSettings.LIFI_CHAINS = JSON.parse(appSettings.LIFI_CHAINS); 
+                        console.log('Parsed LIFI_CHAINS:', appSettings.LIFI_CHAINS);
                     } catch (e) { 
-                        console.warn('Failed to parse LIFI_CHAINS, using fallback');
+                        console.warn('Failed to parse LIFI_CHAINS:', appSettings.LIFI_CHAINS, e);
                         appSettings.LIFI_CHAINS = localFallbacks.LIFI_CHAINS; 
                     }
                 }
@@ -180,8 +197,9 @@
                 if (appSettings.LIFI_TOKENS && typeof appSettings.LIFI_TOKENS === 'string') {
                     try { 
                         appSettings.LIFI_TOKENS = JSON.parse(appSettings.LIFI_TOKENS); 
+                        console.log('Parsed LIFI_TOKENS:', appSettings.LIFI_TOKENS);
                     } catch(e) { 
-                        console.warn('Failed to parse LIFI_TOKENS, using fallback');
+                        console.warn('Failed to parse LIFI_TOKENS:', appSettings.LIFI_TOKENS, e);
                         appSettings.LIFI_TOKENS = localFallbacks.LIFI_TOKENS; 
                     }
                 }
@@ -190,7 +208,12 @@
                 return { ...localFallbacks, ...appSettings };
 
             } catch (error) {
-                console.warn('Failed to load configuration from API:', error.message);
+                console.error('Failed to load configuration from API:', error);
+                console.error('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
                 hideStatus();
                 return localFallbacks;
             }

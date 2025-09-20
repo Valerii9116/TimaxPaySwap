@@ -1,24 +1,30 @@
 module.exports = async function (context, req) {
-    context.log('JavaScript HTTP trigger function processed a request.');
-    
-    // Set CORS headers
-    context.res = {
-        headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        }
-    };
+    context.log('GetAppSettings function triggered');
     
     // Handle preflight OPTIONS request
     if (req.method === 'OPTIONS') {
-        context.res.status = 200;
-        context.res.body = '';
+        context.res = {
+            status: 200,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Content-Type': 'application/json'
+            },
+            body: ''
+        };
         return;
     }
     
     try {
+        // Log environment variables for debugging (remove in production)
+        context.log('Environment variables available:', {
+            LIFI_API_URL: !!process.env.LIFI_API_URL,
+            LIFI_INTEGRATOR: !!process.env.LIFI_INTEGRATOR,
+            LIFI_CHAINS: !!process.env.LIFI_CHAINS,
+            LIFI_TOKENS: !!process.env.LIFI_TOKENS
+        });
+        
         // Get environment variables and return them as JSON
         const appSettings = {
             LIFI_API_URL: process.env.LIFI_API_URL || 'https://li.quest/v1',
@@ -31,16 +37,33 @@ module.exports = async function (context, req) {
             VITE_FEE_COLLECTOR_ADDRESS: process.env.VITE_FEE_COLLECTOR_ADDRESS || '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
         };
         
-        context.res.status = 200;
-        context.res.body = appSettings;
+        context.log('Returning app settings:', appSettings);
+        
+        context.res = {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            },
+            body: appSettings
+        };
         
     } catch (error) {
         context.log.error('Error retrieving app settings:', error);
         
-        context.res.status = 500;
-        context.res.body = {
-            error: 'Internal server error',
-            message: 'Unable to retrieve application settings'
+        context.res = {
+            status: 500,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: {
+                error: 'Internal server error',
+                message: 'Unable to retrieve application settings',
+                details: error.message
+            }
         };
     }
 };
