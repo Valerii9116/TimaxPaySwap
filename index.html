@@ -89,7 +89,10 @@
             // Supported Chains (Chain IDs) - Add/remove as needed
             LIFI_CHAINS: [
                 1,      // Ethereum
-                10,     // Optimism  
+                10,     // Optimism
+                130,    // Unichain
+                59144,  // Linea 
+                43114,  // Avalanche 
                 137,    // Polygon
                 42161,  // Arbitrum
                 56,     // BSC
@@ -381,7 +384,7 @@
                     fromChain, toChain, fromToken: fromToken.address, toToken: toToken.address,
                     fromAmount: fromAmountWei, fromAddress: currentUser.wallet.address,
                     integrator: CONFIG.LIFI_INTEGRATOR,
-                    fee: 0.00 // Example: 1% fee on destination
+                    fee: 0.01 // Example: 1% fee on destination
                 });
 
                 const response = await fetch(`${CONFIG.LIFI_API_URL}/quote?${params}`);
