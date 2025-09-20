@@ -126,13 +126,27 @@
         </footer>
     </div>
 
+    <!-- Configuration Script - Replace with your actual values -->
+    <script>
+        // Define your configuration here directly
+        // You can manually update these values or replace them via build process
+        window.TIMAX_CONFIG = {
+            LIFI_API_URL: 'https://li.quest/v1',
+            LIFI_CHAINS: [1, 10, 137, 42161, 56, 8453], // Ethereum, Optimism, Polygon, Arbitrum, BSC, Base
+            LIFI_INTEGRATOR: 'Timax_swap',
+            LIFI_TOKENS: ['ETH', 'USDC', 'USDT', 'DAI', 'MATIC', 'BNB'],
+            VITE_FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
+        };
+    </script>
+
     <script type="module">
         let currentUser, currentProvider, currentSigner, currentQuote;
         let allChains = [], allTokens = {}, currentBalance = '0';
         let CONFIG = {};
 
         async function loadConfig() {
-            const localFallbacks = {
+            // Try API first, then fallback to window config, then hardcoded defaults
+            const hardcodedFallbacks = {
                 LIFI_API_URL: 'https://li.quest/v1',
                 LIFI_CHAINS: [1, 10, 137, 42161, 56, 8453],
                 LIFI_INTEGRATOR: 'Timax_swap',
@@ -140,6 +154,13 @@
                 VITE_FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
             };
 
+            // First try the window configuration
+            if (window.TIMAX_CONFIG) {
+                console.log('✅ Using window configuration');
+                return { ...hardcodedFallbacks, ...window.TIMAX_CONFIG };
+            }
+
+            // Then try API
             try {
                 showStatus('⏳ Loading configuration...', 'loading');
                 console.log('Attempting to fetch from /api/getAppSettings');
@@ -153,70 +174,45 @@
                 });
 
                 console.log('Response status:', response.status);
-                console.log('Response headers:', [...response.headers.entries()]);
 
-                if (!response.ok) {
-                    console.warn(`Config API returned ${response.status}: ${response.statusText}`);
+                if (response.ok) {
+                    const contentType = response.headers.get("content-type");
                     
-                    // Try to get error details
-                    const errorText = await response.text();
-                    console.warn('Error response body:', errorText);
-                    
-                    hideStatus();
-                    return localFallbacks;
-                }
+                    if (contentType && contentType.includes("application/json")) {
+                        const appSettings = await response.json();
+                        console.log('✅ Successfully loaded configuration from Azure API:', appSettings);
 
-                const contentType = response.headers.get("content-type");
-                console.log('Content-Type:', contentType);
-                
-                if (!contentType || !contentType.includes("application/json")) {
-                    console.warn('Config API did not return JSON content type:', contentType);
-                    
-                    // Log the actual response for debugging
-                    const responseText = await response.text();
-                    console.warn('Non-JSON response body:', responseText);
-                    
-                    hideStatus();
-                    return localFallbacks;
-                }
-                
-                const appSettings = await response.json();
-                console.log('✅ Successfully loaded configuration from Azure:', appSettings);
+                        // Parse JSON strings for arrays
+                        if (appSettings.LIFI_CHAINS && typeof appSettings.LIFI_CHAINS === 'string') {
+                            try { 
+                                appSettings.LIFI_CHAINS = JSON.parse(appSettings.LIFI_CHAINS); 
+                            } catch (e) { 
+                                appSettings.LIFI_CHAINS = hardcodedFallbacks.LIFI_CHAINS; 
+                            }
+                        }
 
-                // Parse JSON strings for arrays
-                if (appSettings.LIFI_CHAINS && typeof appSettings.LIFI_CHAINS === 'string') {
-                    try { 
-                        appSettings.LIFI_CHAINS = JSON.parse(appSettings.LIFI_CHAINS); 
-                        console.log('Parsed LIFI_CHAINS:', appSettings.LIFI_CHAINS);
-                    } catch (e) { 
-                        console.warn('Failed to parse LIFI_CHAINS:', appSettings.LIFI_CHAINS, e);
-                        appSettings.LIFI_CHAINS = localFallbacks.LIFI_CHAINS; 
+                        if (appSettings.LIFI_TOKENS && typeof appSettings.LIFI_TOKENS === 'string') {
+                            try { 
+                                appSettings.LIFI_TOKENS = JSON.parse(appSettings.LIFI_TOKENS); 
+                            } catch(e) { 
+                                appSettings.LIFI_TOKENS = hardcodedFallbacks.LIFI_TOKENS; 
+                            }
+                        }
+                        
+                        hideStatus();
+                        return { ...hardcodedFallbacks, ...appSettings };
                     }
                 }
 
-                if (appSettings.LIFI_TOKENS && typeof appSettings.LIFI_TOKENS === 'string') {
-                    try { 
-                        appSettings.LIFI_TOKENS = JSON.parse(appSettings.LIFI_TOKENS); 
-                        console.log('Parsed LIFI_TOKENS:', appSettings.LIFI_TOKENS);
-                    } catch(e) { 
-                        console.warn('Failed to parse LIFI_TOKENS:', appSettings.LIFI_TOKENS, e);
-                        appSettings.LIFI_TOKENS = localFallbacks.LIFI_TOKENS; 
-                    }
-                }
+                console.warn('API did not return valid JSON, using hardcoded fallbacks');
                 
-                hideStatus();
-                return { ...localFallbacks, ...appSettings };
-
             } catch (error) {
-                console.error('Failed to load configuration from API:', error);
-                console.error('Error details:', {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack
-                });
-                hideStatus();
-                return localFallbacks;
+                console.warn('API request failed, using hardcoded fallbacks:', error.message);
             }
+
+            hideStatus();
+            console.log('✅ Using hardcoded configuration fallbacks');
+            return hardcodedFallbacks;
         }
 
         const fromAmountInput = document.getElementById('from-amount');

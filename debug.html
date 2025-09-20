@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimaxPaySwap - Debug Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">TimaxPaySwap API Debug Tool</h1>
+        
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">API Endpoint Test</h2>
+            <button id="test-api" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded mb-4">Test /api/getAppSettings</button>
+            <div id="api-results" class="bg-gray-900 p-4 rounded text-sm font-mono whitespace-pre-wrap"></div>
+        </div>
+
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Environment Variables Check</h2>
+            <div id="env-check" class="space-y-2"></div>
+        </div>
+
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Network Information</h2>
+            <div id="network-info" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('test-api').addEventListener('click', async () => {
+            const resultsDiv = document.getElementById('api-results');
+            resultsDiv.textContent = 'Testing API endpoint...\n';
+
+            try {
+                // Test the API endpoint
+                const response = await fetch('/api/getAppSettings', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                resultsDiv.textContent += `Response Status: ${response.status} ${response.statusText}\n`;
+                resultsDiv.textContent += `Response URL: ${response.url}\n\n`;
+
+                // Log all response headers
+                resultsDiv.textContent += 'Response Headers:\n';
+                for (const [key, value] of response.headers.entries()) {
+                    resultsDiv.textContent += `  ${key}: ${value}\n`;
+                }
+                resultsDiv.textContent += '\n';
+
+                // Try to get response body
+                const contentType = response.headers.get('content-type');
+                resultsDiv.textContent += `Content-Type: ${contentType}\n\n`;
+
+                if (response.ok) {
+                    if (contentType && contentType.includes('application/json')) {
+                        const data = await response.json();
+                        resultsDiv.textContent += 'Response Body (JSON):\n';
+                        resultsDiv.textContent += JSON.stringify(data, null, 2);
+                    } else {
+                        const text = await response.text();
+                        resultsDiv.textContent += 'Response Body (Text):\n';
+                        resultsDiv.textContent += text;
+                    }
+                } else {
+                    const errorText = await response.text();
+                    resultsDiv.textContent += 'Error Response Body:\n';
+                    resultsDiv.textContent += errorText;
+                }
+
+            } catch (error) {
+                resultsDiv.textContent += `\nError: ${error.message}\n`;
+                resultsDiv.textContent += `Stack: ${error.stack}\n`;
+            }
+        });
+
+        // Check environment and network info
+        function displayNetworkInfo() {
+            const networkDiv = document.getElementById('network-info');
+            networkDiv.innerHTML = `
+                <div><strong>Current URL:</strong> ${window.location.href}</div>
+                <div><strong>Origin:</strong> ${window.location.origin}</div>
+                <div><strong>Protocol:</strong> ${window.location.protocol}</div>
+                <div><strong>Host:</strong> ${window.location.host}</div>
+                <div><strong>User Agent:</strong> ${navigator.userAgent}</div>
+            `;
+        }
+
+        function displayEnvCheck() {
+            const envDiv = document.getElementById('env-check');
+            envDiv.innerHTML = `
+                <div class="text-yellow-400">Note: Environment variables are only accessible server-side via Azure Functions</div>
+                <div><strong>Expected API endpoint:</strong> ${window.location.origin}/api/getAppSettings</div>
+                <div><strong>Azure Static Web Apps:</strong> Functions should be in /api/ folder</div>
+            `;
+        }
+
+        // Initialize
+        displayNetworkInfo();
+        displayEnvCheck();
+    </script>
+</body>
+</html>
