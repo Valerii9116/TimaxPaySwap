@@ -49,11 +49,14 @@
         }
         .token-input:focus { outline: none; }
         .token-selector {
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.2);
             border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: white; cursor: pointer;
             font-weight: 500;
         }
         select.token-selector { -webkit-appearance: none; appearance: none; }
+        select.token-selector option {
+            background: #1f2937; /* Dark background for dropdown options */
+        }
         .max-button {
             background-color: #4f46e5; color: white; border: none; padding: 0 8px; border-radius: 4px;
             font-size: 0.75rem; font-weight: bold; cursor: pointer; margin-left: 8px;
@@ -528,3 +531,4 @@
     </script>
 </body>
 </html>
+
