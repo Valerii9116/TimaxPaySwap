@@ -78,21 +78,19 @@
         </footer>
     </div>
     
-    <!-- FIXED: This is the dedicated container for the React app. It's separate from the content it manages. -->
     <div id="privy-root"></div>
 
     <script type="module">
-        // Using stable versions from esm.sh
-        import { LiFiWidget } from 'https://esm.sh/@lifi/widget@2.12.0';
-        import { PrivyProvider, usePrivy } from 'https://esm.sh/@privy-io/react-auth@1.69.2';
+        // FIXED: Updated to the latest stable versions to resolve 404 errors.
+        import { LiFiWidget } from 'https://esm.sh/@lifi/widget@2.13.0';
+        import { PrivyProvider, usePrivy } from 'https://esm.sh/@privy-io/react-auth@1.70.0';
         import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
         import React, { useEffect, useState, useCallback } from 'https://esm.sh/react@18.2.0';
 
         // --- Configuration ---
-        // IMPORTANT: These are placeholders. You should manage these in your Azure deployment settings.
-        const PRIVY_APP_ID = "cmfij4weu00uuju0buawfjemg"; 
-        const WALLETCONNECT_PROJECT_ID = "dc14d146c0227704322ac9a46aaed7cd";
-        const FEE_COLLECTOR_ADDRESS = '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0';
+        const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || "cmfij4weu00uuju0buawfjemg"; 
+        const WALLETCONNECT_PROJECT_ID = process.env.VITE_WALLETCONNECT_PROJECT_ID || "dc14d146c0227704322ac9a46aaed7cd";
+        const FEE_COLLECTOR_ADDRESS = process.env.VITE_FEE_COLLECTOR_ADDRESS || '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0';
         
         // --- LI.FI Widget Configuration ---
         const widgetConfig = {
@@ -123,7 +121,6 @@
             const { ready, authenticated, user, login, logout, getEthereumProvider } = usePrivy();
             const [widgetRoot, setWidgetRoot] = useState(null);
 
-            // Using useCallback for stable function references
             const mountWidget = useCallback(async () => {
                 try {
                     const provider = await getEthereumProvider();
@@ -138,12 +135,12 @@
                     if (lifiContainer) {
                         const root = createRoot(lifiContainer);
                         root.render(React.createElement(LiFiWidget, { config: configWithSigner }));
-                        setWidgetRoot(root); // Store the root to unmount later
+                        setWidgetRoot(root);
                     }
                 } catch (error) {
                     console.error("Failed to mount widget:", error);
                 }
-            }, [getEthereumProvider]); // Dependency on getEthereumProvider
+            }, [getEthereumProvider]);
 
             const unmountWidget = useCallback(() => {
                 if (widgetRoot) {
@@ -214,7 +211,6 @@
         }
 
         // --- Mount React App ---
-        // FIXED: Mount the app to the dedicated 'privy-root' container.
         const privyRootContainer = document.getElementById('privy-root');
         if (privyRootContainer) {
             const root = createRoot(privyRootContainer);
