@@ -66,46 +66,9 @@
         }
         .wallet-option:hover { background: rgba(255,255,255,0.15); }
         .wallet-option:active { transform: scale(0.98); }
-        .config-banner {
-            background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; text-center;
-            font-size: 0.875rem; color: #60a5fa;
-        }
     </style>
 </head>
 <body class="bg-gray-900 text-white antialiased">
-
-    <!-- Configuration Section - EDIT YOUR VALUES HERE -->
-    <script>
-        // 🔧 CONFIGURATION - Update these values with your settings
-        window.TIMAX_CONFIG = {
-            // LI.FI API Settings
-            LIFI_API_URL: 'https://li.quest/v1',
-            LIFI_INTEGRATOR: 'Timax_swap', // ⚠️ CHANGE THIS to your registered integrator name
-            
-            // Supported Chains (Chain IDs) - Add/remove as needed
-            LIFI_CHAINS: [
-                1,      // Ethereum
-                10,     // Optimism  
-                137,    // Polygon
-                42161,  // Arbitrum
-                56,     // BSC
-                8453    // Base
-            ],
-            
-            // Supported Tokens - Add/remove as needed  
-            LIFI_TOKENS: [
-                'ETH', 'WETH', 'USDC', 'USDT', 'DAI', 
-                'MATIC', 'BNB', 'WBTC', 'UNI', 'LINK'
-            ],
-            
-            // Your fee collector wallet address
-            VITE_FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0' // ⚠️ CHANGE THIS
-        };
-        
-        // Debug info
-        console.log('📝 TimaxPaySwap Configuration Loaded:', window.TIMAX_CONFIG);
-    </script>
 
     <div id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4">
         
@@ -115,19 +78,17 @@
         </header>
 
         <main id="main-content" class="w-full max-w-lg glass-container p-6 md:p-8">
-            <!-- Configuration Notice -->
-            <div class="config-banner">
-                💡 Configuration loaded from script. Update window.TIMAX_CONFIG to customize settings.
-            </div>
-            
             <div id="auth-screen" class="text-center">
                 <p class="mb-6 text-gray-200">Connect your wallet to begin swapping assets across any chain, powered by LI.FI.</p>
                 
                 <!-- Mobile-friendly wallet connection options -->
                 <div id="wallet-options">
                     <div id="metamask-option" class="wallet-option">
-                        <svg width="24" height="24" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M448 256C448 339.77 380.11 408 296 408S144 339.77 144 256s67.89-152 152-152S448 172.23 448 256z" fill="#FF8C00"/>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                         </svg>
                         <span>MetaMask</span>
                     </div>
@@ -135,13 +96,14 @@
                     <div id="walletconnect-option" class="wallet-option">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M5.5 9.5C8.5 6.5 13.5 6.5 16.5 9.5L17.5 10.5C17.8 10.8 17.8 11.2 17.5 11.5L16.5 12.5C16.2 12.8 15.8 12.8 15.5 12.5L14.8 11.8C12.8 9.8 9.2 9.8 7.2 11.8L6.5 12.5C6.2 12.8 5.8 12.8 5.5 12.5L4.5 11.5C4.2 11.2 4.2 10.8 4.5 10.5L5.5 9.5Z" fill="#3B99FC"/>
+                            <path d="M19.5 13.5L20.5 14.5C20.8 14.8 20.8 15.2 20.5 15.5L12.7 23.3C12.4 23.6 12 23.6 11.7 23.3L3.5 15.1C3.2 14.8 3.2 14.4 3.5 14.1L4.5 13.1C4.8 12.8 5.2 12.8 5.5 13.1L12 19.6L18.5 13.1C18.8 12.8 19.2 12.8 19.5 13.1Z" fill="#3B99FC"/>
                         </svg>
                         <span>WalletConnect</span>
                     </div>
                     
                     <div id="trust-wallet-option" class="wallet-option">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 2L3 7V12C3 17.55 6.84 22.74 12 24C17.16 22.74 21 17.55 21 12V7L12 2Z" fill="#3375BB"/>
+                            <path d="M12 2L3 7V12C3 17.55 6.84 22.74 12 24C17.16 22.74 21 17.55 21 12V7L12 2ZM10.5 17L6.5 13L7.91 11.59L10.5 14.17L16.09 8.59L17.5 10L10.5 17Z" fill="#3375BB"/>
                         </svg>
                         <span>Trust Wallet</span>
                     </div>
@@ -202,7 +164,7 @@
     <script type="module">
         let currentUser, currentProvider, currentSigner, currentQuote;
         let allChains = [], allTokens = {}, currentBalance = '0';
-        let CONFIG = window.TIMAX_CONFIG;
+        let CONFIG = {};
 
         // Mobile detection
         const isMobile = () => {
@@ -210,6 +172,7 @@
                    (window.innerWidth <= 768);
         };
 
+        // Check if we're in a mobile wallet browser
         const isMobileWallet = () => {
             return window.ethereum && (
                 /TokenPocket/i.test(navigator.userAgent) ||
@@ -220,6 +183,70 @@
                 window.ethereum.isMetaMask
             );
         };
+
+        async function loadConfig() {
+            const localFallbacks = {
+                LIFI_API_URL: 'https://li.quest/v1',
+                LIFI_CHAINS: [1, 10, 137, 42161, 56, 8453],
+                LIFI_INTEGRATOR: 'Timax_swap',
+                LIFI_TOKENS: ['ETH', 'USDC', 'USDT', 'DAI', 'MATIC', 'BNB'],
+                VITE_FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
+            };
+
+            try {
+                showStatus('⏳ Loading configuration...', 'loading');
+                console.log('Fetching configuration from Azure Functions...');
+                
+                const response = await fetch('/api/getAppSettings', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+
+                console.log('Config API Response:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+
+                if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+                    const appSettings = await response.json();
+                    console.log('✅ Successfully loaded Azure configuration:', appSettings);
+
+                    // Parse JSON strings for arrays
+                    if (typeof appSettings.LIFI_CHAINS === 'string') {
+                        try { 
+                            appSettings.LIFI_CHAINS = JSON.parse(appSettings.LIFI_CHAINS); 
+                        } catch (e) { 
+                            console.warn('Failed to parse LIFI_CHAINS, using fallback');
+                            appSettings.LIFI_CHAINS = localFallbacks.LIFI_CHAINS; 
+                        }
+                    }
+
+                    if (typeof appSettings.LIFI_TOKENS === 'string') {
+                        try { 
+                            appSettings.LIFI_TOKENS = JSON.parse(appSettings.LIFI_TOKENS); 
+                        } catch(e) { 
+                            console.warn('Failed to parse LIFI_TOKENS, using fallback');
+                            appSettings.LIFI_TOKENS = localFallbacks.LIFI_TOKENS; 
+                        }
+                    }
+                    
+                    hideStatus();
+                    return { ...localFallbacks, ...appSettings };
+                } else {
+                    throw new Error(`Invalid response: ${response.status}`);
+                }
+
+            } catch (error) {
+                console.warn('❌ Failed to load Azure configuration, using fallbacks:', error);
+                hideStatus();
+                return localFallbacks;
+            }
+        }
 
         const fromAmountInput = document.getElementById('from-amount');
         const swapBtn = document.getElementById('swap-btn');
@@ -241,14 +268,16 @@
         const connectMobileWallet = async (walletType) => {
             const currentUrl = window.location.href;
             
+            // If already in a wallet browser, try direct connection
             if (window.ethereum) {
                 return await connectWallet();
             }
 
+            // Deep link URLs for mobile wallets
             const deepLinks = {
                 metamask: `https://metamask.app.link/dapp/${window.location.host}`,
                 trust: `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(currentUrl)}`,
-                walletconnect: currentUrl
+                walletconnect: currentUrl // WalletConnect will be handled by the universal provider
             };
 
             if (deepLinks[walletType]) {
@@ -273,6 +302,108 @@
                     return;
                 }
 
+                // Request account access
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+
+                if (!accounts || accounts.length === 0) {
+                    throw new Error('No accounts returned from wallet');
+                }
+
+                currentProvider = new ethers.providers.Web3Provider(window.ethereum);
+                currentSigner = currentProvider.getSigner();
+                const address = await currentSigner.getAddress();
+                
+                currentUser = { wallet: { address } };
+                document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+                
+                hideStatus();
+                showScreen('widget-screen');
+                await populateDropdowns();
+                updateBalance();
+
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length === 0) {
+                        disconnectWallet();
+                    } else {
+                        // Reload with new account
+                        window.location.reload();
+                    }
+                });
+
+                // Listen for chain changes
+                window.ethereum.on('chainChanged', () => {
+                    window.location.reload();
+                });
+                
+            } catch (error) {
+                console.error('Wallet connection failed:', error);
+                
+                let errorMessage = '❌ Connection failed. ';
+                if (error.code === 4001) {
+                    errorMessage += 'Please approve the connection request.';
+                } else if (error.code === -32002) {
+                    errorMessage += 'Please check your wallet for pending requests.';
+                } else {
+                    errorMessage += 'Please try again.';
+                }
+                
+                showStatus(errorMessage, 'error');
+                
+                // Auto-retry for mobile
+                if (isMobile() && !isMobileWallet()) {
+                    setTimeout(() => {
+                        hideStatus();
+                    }, 3000);
+                }
+            }
+        };
+
+        const updateBalance = async () => {
+            if (!currentSigner) return;
+            const fromChain = document.getElementById('from-chain').value;
+            const fromTokenSymbol = document.getElementById('from-token').value;
+            const balanceEl = document.getElementById('from-balance');
+            balanceEl.textContent = 'Balance: ...';
+
+            const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
+            if (!token) { 
+                balanceEl.textContent = 'Balance: -'; 
+                return; 
+            }
+
+            try {
+                let balanceBN;
+                if (token.address === '0x0000000000000000000000000000000000000000') {
+                    balanceBN = await currentProvider.getBalance(currentUser.wallet.address);
+                } else {
+                    const tokenContract = new ethers.Contract(token.address, ['function balanceOf(address) view returns (uint256)'], currentProvider);
+                    balanceBN = await tokenContract.balanceOf(currentUser.wallet.address);
+                }
+                currentBalance = ethers.utils.formatUnits(balanceBN, token.decimals);
+                balanceEl.textContent = `Balance: ${parseFloat(currentBalance).toFixed(4)}`;
+            } catch (error) {
+                console.error("Failed to get balance", error);
+                balanceEl.textContent = `Balance: -`;
+                currentBalance = '0';
+            }
+        };
+
+        const populateDropdowns = async () => {
+            try {
+                showStatus('⏳ Loading chains and tokens...', 'loading');
+                
+                const [chainsResponse, tokensResponse] = await Promise.all([
+                    fetch(`${CONFIG.LIFI_API_URL}/chains`),
+                    fetch(`${CONFIG.LIFI_API_URL}/tokens`)
+                ]);
+
+                if (!chainsResponse.ok || !tokensResponse.ok) {
+                    throw new Error('Failed to fetch chains or tokens');
+                }
+                
                 const chainsData = await chainsResponse.json();
                 const tokensData = await tokensResponse.json();
                 
@@ -462,7 +593,8 @@
 
         async function initializeApp() {
             try {
-                console.log('🚀 Initializing TimaxPaySwap with config:', CONFIG);
+                CONFIG = await loadConfig();
+                console.log('Loaded configuration:', CONFIG);
                 
                 // Set up wallet connection options
                 document.getElementById('metamask-option').addEventListener('click', () => {
@@ -474,8 +606,13 @@
                 });
 
                 document.getElementById('walletconnect-option').addEventListener('click', () => {
-                    showStatus('⏳ WalletConnect integration coming soon...', 'loading');
-                    setTimeout(hideStatus, 2000);
+                    if (isMobile()) {
+                        showStatus('⏳ WalletConnect integration coming soon...', 'loading');
+                        setTimeout(hideStatus, 2000);
+                    } else {
+                        showStatus('⏳ WalletConnect integration coming soon...', 'loading');
+                        setTimeout(hideStatus, 2000);
+                    }
                 });
 
                 document.getElementById('trust-wallet-option').addEventListener('click', () => {
@@ -553,101 +690,4 @@
         initializeApp();
     </script>
 </body>
-</html> accounts = await window.ethereum.request({ 
-                    method: 'eth_requestAccounts' 
-                });
-
-                if (!accounts || accounts.length === 0) {
-                    throw new Error('No accounts returned from wallet');
-                }
-
-                currentProvider = new ethers.providers.Web3Provider(window.ethereum);
-                currentSigner = currentProvider.getSigner();
-                const address = await currentSigner.getAddress();
-                
-                currentUser = { wallet: { address } };
-                document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
-                
-                hideStatus();
-                showScreen('widget-screen');
-                await populateDropdowns();
-                updateBalance();
-
-                window.ethereum.on('accountsChanged', (accounts) => {
-                    if (accounts.length === 0) {
-                        disconnectWallet();
-                    } else {
-                        window.location.reload();
-                    }
-                });
-
-                window.ethereum.on('chainChanged', () => {
-                    window.location.reload();
-                });
-                
-            } catch (error) {
-                console.error('Wallet connection failed:', error);
-                
-                let errorMessage = '❌ Connection failed. ';
-                if (error.code === 4001) {
-                    errorMessage += 'Please approve the connection request.';
-                } else if (error.code === -32002) {
-                    errorMessage += 'Please check your wallet for pending requests.';
-                } else {
-                    errorMessage += 'Please try again.';
-                }
-                
-                showStatus(errorMessage, 'error');
-                
-                if (isMobile() && !isMobileWallet()) {
-                    setTimeout(() => {
-                        hideStatus();
-                    }, 3000);
-                }
-            }
-        };
-
-        const updateBalance = async () => {
-            if (!currentSigner) return;
-            const fromChain = document.getElementById('from-chain').value;
-            const fromTokenSymbol = document.getElementById('from-token').value;
-            const balanceEl = document.getElementById('from-balance');
-            balanceEl.textContent = 'Balance: ...';
-
-            const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
-            if (!token) { 
-                balanceEl.textContent = 'Balance: -'; 
-                return; 
-            }
-
-            try {
-                let balanceBN;
-                if (token.address === '0x0000000000000000000000000000000000000000') {
-                    balanceBN = await currentProvider.getBalance(currentUser.wallet.address);
-                } else {
-                    const tokenContract = new ethers.Contract(token.address, ['function balanceOf(address) view returns (uint256)'], currentProvider);
-                    balanceBN = await tokenContract.balanceOf(currentUser.wallet.address);
-                }
-                currentBalance = ethers.utils.formatUnits(balanceBN, token.decimals);
-                balanceEl.textContent = `Balance: ${parseFloat(currentBalance).toFixed(4)}`;
-            } catch (error) {
-                console.error("Failed to get balance", error);
-                balanceEl.textContent = `Balance: -`;
-                currentBalance = '0';
-            }
-        };
-
-        const populateDropdowns = async () => {
-            try {
-                showStatus('⏳ Loading chains and tokens...', 'loading');
-                
-                const [chainsResponse, tokensResponse] = await Promise.all([
-                    fetch(`${CONFIG.LIFI_API_URL}/chains`),
-                    fetch(`${CONFIG.LIFI_API_URL}/tokens`)
-                ]);
-
-                if (!chainsResponse.ok || !tokensResponse.ok) {
-                    throw new Error('Failed to fetch chains or tokens');
-                }
-                
-                const
+</html>
