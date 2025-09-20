@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Variables Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-blue-400">Azure Environment Variables Test</h1>
+        
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <div class="flex gap-4 mb-4">
+                <button id="test-env" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Test Environment Variables</button>
+                <button id="clear-results" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Clear Results</button>
+            </div>
+            
+            <div id="loading" class="hidden text-yellow-400 mb-4">
+                🔄 Testing Azure Functions API...
+            </div>
+            
+            <div id="results" class="space-y-4"></div>
+        </div>
+
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4 text-green-400">Expected Environment Variables</h2>
+            <div class="text-sm text-gray-300 space-y-1">
+                <div><code class="text-blue-300">LIFI_API_URL</code> - LI.FI API endpoint</div>
+                <div><code class="text-blue-300">LIFI_CHAINS</code> - JSON array of chain IDs</div>
+                <div><code class="text-blue-300">LIFI_TOKENS</code> - JSON array of token symbols</div>
+                <div><code class="text-blue-300">LIFI_INTEGRATOR</code> - Your integrator name</div>
+                <div><code class="text-blue-300">VITE_FEE_COLLECTOR_ADDRESS</code> - Fee collector wallet address</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const showLoading = (show) => {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        };
+
+        const addResult = (title, content, type = 'info') => {
+            const resultsDiv = document.getElementById('results');
+            const colorClass = {
+                'success': 'border-green-500 bg-green-900/20 text-green-300',
+                'error': 'border-red-500 bg-red-900/20 text-red-300',
+                'warning': 'border-yellow-500 bg-yellow-900/20 text-yellow-300',
+                'info': 'border-blue-500 bg-blue-900/20 text-blue-300'
+            }[type];
+
+            const resultHtml = `
+                <div class="border-l-4 ${colorClass} p-4 rounded-r">
+                    <h3 class="font-semibold mb-2">${title}</h3>
+                    <pre class="text-sm overflow-x-auto whitespace-pre-wrap">${content}</pre>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML += resultHtml;
+        };
+
+        const testEnvironmentVariables = async () => {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            showLoading(true);
+
+            try {
+                // Test the API endpoint
+                const response = await fetch('/api/getAppSettings', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                addResult(
+                    '📡 API Response Status',
+                    `Status: ${response.status} ${response.statusText}\nURL: ${response.url}`,
+                    response.ok ? 'success' : 'error'
+                );
+
+                // Check response headers
+                const headers = {};
+                for (const [key, value] of response.headers.entries()) {
+                    headers[key] = value;
+                }
+                addResult('📋 Response Headers', JSON.stringify(headers, null, 2), 'info');
+
+                const contentType = response.headers.get('content-type');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addResult('❌ Error Response', errorText, 'error');
+                    return;
+                }
+
+                if (!contentType || !contentType.includes('application/json')) {
+                    const responseText = await response.text();
+                    addResult(
+                        '⚠️ Non-JSON Response',
+                        `Content-Type: ${contentType}\n\nResponse Body:\n${responseText}`,
+                        'warning'
+                    );
+                    return;
+                }
+
+                // Parse JSON response
+                const data = await response.json();
+                addResult('✅ Environment Variables Retrieved', JSON.stringify(data, null, 2), 'success');
+
+                // Validate specific variables
+                const validations = [];
+                
+                if (data.LIFI_API_URL && data.LIFI_API_URL !== 'https://li.quest/v1') {
+                    validations.push(`✅ LIFI_API_URL: Custom value set`);
+                } else {
+                    validations.push(`⚪ LIFI_API_URL: Using default value`);
+                }
+
+                if (data.LIFI_INTEGRATOR && data.LIFI_INTEGRATOR !== 'Timax_swap') {
+                    validations.push(`✅ LIFI_INTEGRATOR: Custom value set`);
+                } else {
+                    validations.push(`⚪ LIFI_INTEGRATOR: Using default value`);
+                }
+
+                if (data.VITE_FEE_COLLECTOR_ADDRESS && data.VITE_FEE_COLLECTOR_ADDRESS !== '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0') {
+                    validations.push(`✅ VITE_FEE_COLLECTOR_ADDRESS: Custom value set`);
+                } else {
+                    validations.push(`⚪ VITE_FEE_COLLECTOR_ADDRESS: Using default value`);
+                }
+
+                // Test JSON parsing
+                try {
+                    const chains = JSON.parse(data.LIFI_CHAINS);
+                    validations.push(`✅ LIFI_CHAINS: Valid JSON array with ${chains.length} chains`);
+                } catch (e) {
+                    validations.push(`❌ LIFI_CHAINS: Invalid JSON format`);
+                }
+
+                try {
+                    const tokens = JSON.parse(data.LIFI_TOKENS);
+                    validations.push(`✅ LIFI_TOKENS: Valid JSON array with ${tokens.length} tokens`);
+                } catch (e) {
+                    validations.push(`❌ LIFI_TOKENS: Invalid JSON format`);
+                }
+
+                addResult('🔍 Variable Validation', validations.join('\n'), 'info');
+
+            } catch (error) {
+                addResult(
+                    '💥 Request Failed',
+                    `Error: ${error.message}\n\nStack: ${error.stack}`,
+                    'error'
+                );
+            } finally {
+                showLoading(false);
+            }
+        };
+
+        document.getElementById('test-env').addEventListener('click', testEnvironmentVariables);
+        document.getElementById('clear-results').addEventListener('click', () => {
+            document.getElementById('results').innerHTML = '';
+        });
+
+        // Auto-run test on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(testEnvironmentVariables, 1000);
+        });
+    </script>
+</body>
+</html>
