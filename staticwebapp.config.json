@@ -1,0 +1,27 @@
+{
+    "routes": [
+      {
+        "route": "/*",
+        "headers": {
+          "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://li.quest https://*.alchemy.com https://*.infura.io data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://li.quest https://*.alchemy.com https://*.infura.io https://unpkg.com https://cdn.jsdelivr.net wss: ws:;",
+          "X-Frame-Options": "SAMEORIGIN",
+          "X-Content-Type-Options": "nosniff"
+        }
+      }
+    ],
+    "responseOverrides": {
+      "404": {
+        "redirect": "/index.html",
+        "statusCode": 200
+      }
+    },
+    "mimeTypes": {
+      ".js": "application/javascript",
+      ".mjs": "application/javascript"
+    },
+    "globalHeaders": {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    }
+  }

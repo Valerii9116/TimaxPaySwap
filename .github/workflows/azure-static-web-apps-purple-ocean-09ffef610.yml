@@ -15,24 +15,53 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           lfs: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+          else
+            echo "No package.json found, skipping npm install"
+          fi
+
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PURPLE_OCEAN_09FFEF610 }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
-          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
+          ###### Repository/Build Configurations ######
           app_location: "/" # App source code path
           api_location: "" # Api source code path - optional
-          output_location: "" # Built app content directory - optional. Empty because we skip the build.
-          skip_app_build: true # <-- THIS IS THE FIX. It tells Azure not to run a build command.
+          output_location: "" # Built app content directory - optional
+          skip_app_build: true # Skip build since we're using static HTML
           ###### End of Repository/Build Configurations ######
+        env:
+          # Environment variables for TimaxPaySwap
+          VITE_PRIVY_APP_ID: ${{ vars.VITE_PRIVY_APP_ID || secrets.VITE_PRIVY_APP_ID }}
+          VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID || secrets.VITE_WALLETCONNECT_PROJECT_ID }}
+          VITE_FEE_COLLECTOR_ADDRESS: ${{ vars.VITE_FEE_COLLECTOR_ADDRESS || secrets.VITE_FEE_COLLECTOR_ADDRESS }}
+          LIFI_WIDGET_VERSION: ${{ vars.LIFI_WIDGET_VERSION }}
+          LIFI_INTEGRATOR: ${{ vars.LIFI_INTEGRATOR }}
+          LIFI_API_URL: ${{ vars.LIFI_API_URL }}
+          LIFI_THEME: ${{ vars.LIFI_THEME }}
+          LIFI_CHAINS: ${{ vars.LIFI_CHAINS }}
+          LIFI_TOKENS: ${{ vars.LIFI_TOKENS }}
+          LIFI_APPEARANCE: ${{ vars.LIFI_APPEARANCE }}
+          # RPC Provider keys (keep as secrets for security)
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+          INFURA_PROJECT_ID: ${{ secrets.INFURA_PROJECT_ID }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

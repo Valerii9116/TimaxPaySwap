@@ -1,0 +1,12 @@
+ {
+    "name": "lifi-widget-azure-app",
+    "version": "1.0.0",
+    "description": "Li.Fi Widget integration for Azure Static Web App",
+    "main": "index.html",
+    "scripts": {
+      "build": "echo 'Static HTML build complete'",
+      "start": "echo 'Starting static server'"
+    },
+    "dependencies": {},
+    "devDependencies": {}
+  }

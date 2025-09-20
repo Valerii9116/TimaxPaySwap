@@ -32,15 +32,46 @@
             border-radius: 0.75rem;
             transition: all 0.2s ease-in-out;
             box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39);
+            border: none;
+            cursor: pointer;
         }
         .privy-button-custom:hover {
             background-color: #4338ca;
             transform: translateY(-2px);
             box-shadow: 0 6px 20px 0 rgba(79, 70, 229, 0.5);
         }
-        .bg-dots-pattern {
-             background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.2) 1px, transparent 0);
-             background-size: 25px 25px;
+        .status-message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .status-loading {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+        }
+        .status-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+        .status-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #4ade80;
+        }
+        #lifi-widget-container {
+            min-height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .widget-placeholder {
+            text-align: center;
+            color: #9ca3af;
+            padding: 40px 20px;
         }
     </style>
 </head>
@@ -64,12 +95,21 @@
 
             <!-- Widget Screen -->
             <div id="widget-screen" class="hidden">
-                 <div class="flex justify-between items-center mb-6">
+                <div class="flex justify-between items-center mb-6">
                     <p id="wallet-address" class="text-sm text-gray-400 bg-gray-800/50 px-3 py-1 rounded-full truncate"></p>
                     <button id="privy-logout-btn" class="text-sm text-red-400 hover:text-red-300 transition-colors">Disconnect</button>
                 </div>
+                
+                <!-- Status messages -->
+                <div id="status-container"></div>
+                
                 <!-- LI.FI Widget will be mounted here -->
-                <div id="lifi-widget-container"></div>
+                <div id="lifi-widget-container">
+                    <div class="widget-placeholder">
+                        <div class="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                        <p>Loading swap widget...</p>
+                    </div>
+                </div>
             </div>
         </main>
         
@@ -77,148 +117,234 @@
             <p>&copy; 2024 TimaxPaySwap. All rights reserved.</p>
         </footer>
     </div>
-    
-    <div id="privy-root"></div>
 
     <script type="module">
-        // FIXED: Updated to the latest stable versions to resolve 404 errors.
-        import { LiFiWidget } from 'https://esm.sh/@lifi/widget@2.13.0';
-        import { PrivyProvider, usePrivy } from 'https://esm.sh/@privy-io/react-auth@1.70.0';
-        import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
-        import React, { useEffect, useState, useCallback } from 'https://esm.sh/react@18.2.0';
-
-        // --- Configuration ---
-        const PRIVY_APP_ID = process.env.VITE_PRIVY_APP_ID || "cmfij4weu00uuju0buawfjemg"; 
-        const WALLETCONNECT_PROJECT_ID = process.env.VITE_WALLETCONNECT_PROJECT_ID || "dc14d146c0227704322ac9a46aaed7cd";
-        const FEE_COLLECTOR_ADDRESS = process.env.VITE_FEE_COLLECTOR_ADDRESS || '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0';
-        
-        // --- LI.FI Widget Configuration ---
-        const widgetConfig = {
-            integrator: 'Timax_swap',
-            fee: {
-                amount: 0.005, // 0.5% fee
-                collector: FEE_COLLECTOR_ADDRESS,
-            },
-            variant: 'expandable',
-            theme: {
-                palette: {
-                    primary: { main: '#4f46e5' },
-                    secondary: { main: '#ec4899' },
-                    background: { paper: '#111827', default: '#030712' },
-                    text: { primary: '#ffffff', secondary: '#d1d5db' }
-                },
-                shape: { borderRadius: 16, borderRadiusSecondary: 12 },
-            },
-            walletManagement: {
-                signer: null, // Provided dynamically by Privy
-                connect: async () => {},
-                disconnect: async () => {}
-            }
+        // Configuration - Use environment variables or fallback to defaults
+        const CONFIG = {
+            PRIVY_APP_ID: window.VITE_PRIVY_APP_ID || "cmfij4weu00uuju0buawfjemg",
+            WALLETCONNECT_PROJECT_ID: window.VITE_WALLETCONNECT_PROJECT_ID || "dc14d146c0227704322ac9a46aaed7cd",
+            FEE_COLLECTOR_ADDRESS: window.VITE_FEE_COLLECTOR_ADDRESS || '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0',
+            LIFI_WIDGET_VERSION: window.LIFI_WIDGET_VERSION || '3.0.0-alpha.54'
         };
 
-        // --- React App Component ---
-        function App() {
-            const { ready, authenticated, user, login, logout, getEthereumProvider } = usePrivy();
-            const [widgetRoot, setWidgetRoot] = useState(null);
+        // State management
+        let currentUser = null;
+        let currentProvider = null;
+        let widgetInstance = null;
+        let privyInstance = null;
 
-            const mountWidget = useCallback(async () => {
-                try {
-                    const provider = await getEthereumProvider();
-                    if (!provider) {
-                        console.error("Ethereum provider not available.");
-                        return;
-                    }
-                    const signer = provider.getSigner();
-                    const configWithSigner = { ...widgetConfig, walletManagement: { ...widgetConfig.walletManagement, signer } };
-                    
-                    const lifiContainer = document.getElementById('lifi-widget-container');
-                    if (lifiContainer) {
-                        const root = createRoot(lifiContainer);
-                        root.render(React.createElement(LiFiWidget, { config: configWithSigner }));
-                        setWidgetRoot(root);
-                    }
-                } catch (error) {
-                    console.error("Failed to mount widget:", error);
-                }
-            }, [getEthereumProvider]);
+        // Utility functions
+        function showStatus(message, type = 'loading') {
+            const container = document.getElementById('status-container');
+            container.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+        }
 
-            const unmountWidget = useCallback(() => {
-                if (widgetRoot) {
-                    widgetRoot.unmount();
-                    setWidgetRoot(null);
-                }
-            }, [widgetRoot]);
+        function hideStatus() {
+            const container = document.getElementById('status-container');
+            container.innerHTML = '';
+        }
 
-            useEffect(() => {
-                const authScreen = document.getElementById('auth-screen');
-                const widgetScreen = document.getElementById('widget-screen');
-                const walletAddressEl = document.getElementById('wallet-address');
+        function showScreen(screenId) {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('widget-screen').classList.add('hidden');
+            document.getElementById(screenId).classList.remove('hidden');
+        }
 
-                if (ready) {
-                    if (authenticated && user?.wallet) {
-                        authScreen.classList.add('hidden');
-                        widgetScreen.classList.remove('hidden');
-                        walletAddressEl.textContent = `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}`;
-                        
-                        if (!widgetRoot) {
-                            mountWidget();
-                        }
-                    } else {
-                        authScreen.classList.remove('hidden');
-                        widgetScreen.classList.add('hidden');
-                        unmountWidget();
-                    }
-                }
-            }, [ready, authenticated, user, widgetRoot, mountWidget, unmountWidget]);
-
-            useEffect(() => {
-                const loginBtn = document.getElementById('privy-login-btn');
-                const logoutBtn = document.getElementById('privy-logout-btn');
+        // Privy Integration
+        async function initPrivy() {
+            try {
+                showStatus('🔄 Initializing wallet connection...', 'loading');
                 
-                const handleLogin = () => login();
-                const handleLogout = () => logout();
+                // Import Privy from CDN with fallback
+                let PrivyProvider, usePrivy;
+                try {
+                    const privyModule = await import('https://unpkg.com/@privy-io/react-auth@1.82.4/dist/esm/index.js');
+                    PrivyProvider = privyModule.PrivyProvider;
+                    usePrivy = privyModule.usePrivy;
+                } catch (error) {
+                    console.warn('Failed to load Privy from unpkg, trying jsdelivr...', error);
+                    const privyModule = await import('https://cdn.jsdelivr.net/npm/@privy-io/react-auth@1.82.4/dist/esm/index.js');
+                    PrivyProvider = privyModule.PrivyProvider;
+                    usePrivy = privyModule.usePrivy;
+                }
 
-                loginBtn?.addEventListener('click', handleLogin);
-                logoutBtn?.addEventListener('click', handleLogout);
-
-                return () => {
-                    loginBtn?.removeEventListener('click', handleLogin);
-                    logoutBtn?.removeEventListener('click', handleLogout);
-                };
-            }, [login, logout]);
-
-            return null;
+                hideStatus();
+                return { PrivyProvider, usePrivy };
+            } catch (error) {
+                console.error('Failed to initialize Privy:', error);
+                showStatus('❌ Failed to initialize wallet connection. Please refresh and try again.', 'error');
+                throw error;
+            }
         }
 
-        // --- React Root Component with Privy Provider ---
-        function Root() {
-            return React.createElement(
-                PrivyProvider,
-                {
-                    appId: PRIVY_APP_ID,
-                    config: {
-                        loginMethods: ['wallet', 'email', 'google', 'sms'],
-                        embeddedWallets: { createOnLogin: 'users-without-wallets' },
-                        supportedChains: [
-                           'eip155:1', 'eip155:10', 'eip155:137', 'eip155:42161', 'eip155:56', 'eip155:8453', // EVM Chains
-                           'solana:1399811149' // Solana Mainnet
-                        ],
-                        walletConnect: { projectId: WALLETCONNECT_PROJECT_ID }
+        // LiFi Widget Integration
+        async function initLiFiWidget(signer, walletAddress) {
+            try {
+                showStatus('🔄 Loading swap widget...', 'loading');
+                
+                // Import LiFi Widget with fallback CDNs
+                let LiFiWidget;
+                try {
+                    const lifiModule = await import(`https://unpkg.com/@lifi/widget@${CONFIG.LIFI_WIDGET_VERSION}/dist/index.esm.js`);
+                    LiFiWidget = lifiModule.LiFiWidget || lifiModule.default;
+                } catch (error) {
+                    console.warn('Failed to load LiFi from unpkg, trying jsdelivr...', error);
+                    const lifiModule = await import(`https://cdn.jsdelivr.net/npm/@lifi/widget@${CONFIG.LIFI_WIDGET_VERSION}/dist/index.esm.js`);
+                    LiFiWidget = lifiModule.LiFiWidget || lifiModule.default;
+                }
+
+                const widgetConfig = {
+                    integrator: 'TimaxPaySwap',
+                    fee: {
+                        amount: 0.005, // 0.5% fee
+                        collector: CONFIG.FEE_COLLECTOR_ADDRESS,
                     },
-                },
-                React.createElement(App)
-            );
+                    variant: 'expandable',
+                    theme: {
+                        palette: {
+                            primary: { main: '#4f46e5' },
+                            secondary: { main: '#ec4899' },
+                            background: { paper: '#111827', default: '#030712' },
+                            text: { primary: '#ffffff', secondary: '#d1d5db' }
+                        },
+                        shape: { borderRadius: 16, borderRadiusSecondary: 12 },
+                    },
+                    walletConfig: {
+                        onConnect: async () => {
+                            return {
+                                account: walletAddress,
+                                signer: signer
+                            };
+                        }
+                    },
+                    chains: {
+                        allow: [1, 10, 137, 42161, 56, 8453, 43114], // Popular chains
+                    }
+                };
+
+                const container = document.getElementById('lifi-widget-container');
+                container.innerHTML = ''; // Clear placeholder
+
+                // Create widget instance
+                widgetInstance = new LiFiWidget({
+                    ...widgetConfig,
+                    container: container,
+                });
+
+                showStatus('✅ Swap widget loaded successfully!', 'success');
+                setTimeout(hideStatus, 3000);
+
+                return widgetInstance;
+            } catch (error) {
+                console.error('Failed to initialize LiFi Widget:', error);
+                showStatus(`❌ Failed to load swap widget: ${error.message}`, 'error');
+                
+                // Show fallback message
+                const container = document.getElementById('lifi-widget-container');
+                container.innerHTML = `
+                    <div class="widget-placeholder">
+                        <div class="text-red-400 mb-4">
+                            <svg class="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2">Widget Loading Failed</h3>
+                        <p class="text-sm mb-4">Unable to load the swap widget. This might be due to:</p>
+                        <ul class="text-xs text-left space-y-1 mb-4">
+                            <li>• Network connectivity issues</li>
+                            <li>• CDN accessibility problems</li>
+                            <li>• Widget version compatibility</li>
+                        </ul>
+                        <button onclick="location.reload()" class="privy-button-custom text-sm py-2 px-4">
+                            🔄 Reload Page
+                        </button>
+                    </div>
+                `;
+                throw error;
+            }
         }
 
-        // --- Mount React App ---
-        const privyRootContainer = document.getElementById('privy-root');
-        if (privyRootContainer) {
-            const root = createRoot(privyRootContainer);
-            root.render(React.createElement(Root));
-        } else {
-            console.error("Fatal Error: The 'privy-root' container was not found in the DOM.");
+        // Wallet connection handlers
+        async function connectWallet() {
+            try {
+                showStatus('🔄 Connecting wallet...', 'loading');
+                
+                // For now, we'll use a simpler wallet connection approach
+                // This can be enhanced with Privy later
+                if (typeof window.ethereum !== 'undefined') {
+                    const accounts = await window.ethereum.request({
+                        method: 'eth_requestAccounts'
+                    });
+                    
+                    if (accounts.length > 0) {
+                        currentUser = { wallet: { address: accounts[0] } };
+                        currentProvider = window.ethereum;
+                        
+                        // Update UI
+                        const walletAddressEl = document.getElementById('wallet-address');
+                        walletAddressEl.textContent = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
+                        
+                        showScreen('widget-screen');
+                        
+                        // Initialize widget with basic signer
+                        await initLiFiWidget(window.ethereum, accounts[0]);
+                    }
+                } else {
+                    showStatus('❌ Please install MetaMask or another Web3 wallet', 'error');
+                }
+            } catch (error) {
+                console.error('Wallet connection failed:', error);
+                showStatus(`❌ Wallet connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        function disconnectWallet() {
+            currentUser = null;
+            currentProvider = null;
+            if (widgetInstance) {
+                widgetInstance = null;
+            }
+            showScreen('auth-screen');
+            hideStatus();
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginBtn = document.getElementById('privy-login-btn');
+            const logoutBtn = document.getElementById('privy-logout-btn');
+            
+            loginBtn?.addEventListener('click', connectWallet);
+            logoutBtn?.addEventListener('click', disconnectWallet);
+
+            // Check if wallet is already connected
+            if (typeof window.ethereum !== 'undefined') {
+                window.ethereum.request({ method: 'eth_accounts' })
+                    .then(accounts => {
+                        if (accounts.length > 0) {
+                            // Auto-connect if previously connected
+                            connectWallet();
+                        }
+                    })
+                    .catch(console.error);
+            }
+        });
+
+        // Handle account changes
+        if (typeof window.ethereum !== 'undefined') {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    disconnectWallet();
+                } else if (currentUser) {
+                    // Reload if account changed
+                    location.reload();
+                }
+            });
+
+            window.ethereum.on('chainChanged', () => {
+                // Reload on chain change
+                location.reload();
+            });
         }
     </script>
 </body>
 </html>
-
