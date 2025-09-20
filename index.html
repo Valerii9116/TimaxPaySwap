@@ -7,6 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <!-- WalletConnect Client SDK -->
+    <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
         .glass-container {
@@ -74,6 +78,20 @@
             border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; text-center;
             font-size: 0.875rem; color: #4ade80;
         }
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+            z-index: 50; backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: #1f2937; padding: 2rem; border-radius: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 90%; max-width: 400px; text-align: center;
+        }
+        #qr-code-container {
+            margin: 1.5rem auto; background: white; padding: 1rem; border-radius: 1rem;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white antialiased">
@@ -82,6 +100,9 @@
     <script>
         // 🔧 CONFIGURATION - Update these values with your settings
         window.TIMAX_CONFIG = {
+            // Get your project ID from https://cloud.walletconnect.com
+            WALLETCONNECT_PROJECT_ID: 'dc14d146c0227704322ac9a46aaed7cd', // ⚠️ CHANGE THIS
+
             // LI.FI API Settings
             LIFI_API_URL: 'https://li.quest/v1',
             LIFI_INTEGRATOR: 'Timax_swap', // ⚠️ CHANGE THIS to your registered integrator name
@@ -198,12 +219,24 @@
             <p>&copy; 2024 TimaxPaySwap. Powered by <a href="https://li.fi/" target="_blank" rel="noopener" class="text-blue-400 hover:text-blue-300">LI.FI</a></p>
         </footer>
     </div>
+    
+    <!-- WalletConnect Modal -->
+    <div id="walletconnect-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-2">Connect Wallet</h2>
+            <p class="text-gray-400 mb-4">Scan QR code with your mobile wallet or use the mobile link.</p>
+            <div id="qr-code-container"></div>
+            <a id="mobile-connect-link" href="#" class="action-button w-full text-center block md:hidden">Connect on Mobile</a>
+            <button id="close-modal-btn" class="mt-4 text-gray-400 hover:text-white">Cancel</button>
+        </div>
+    </div>
+
 
     <script>
         // --- SCRIPT START --- //
 
         // Global variables
-        let currentUser, currentProvider, currentSigner, currentQuote;
+        let currentUser, currentProvider, currentSigner, currentQuote, wcProvider;
         let allChains = [], allTokens = {}, currentBalance = '0';
         let CONFIG = window.TIMAX_CONFIG;
 
@@ -224,32 +257,46 @@
             document.getElementById(id).classList.remove('hidden');
         };
 
+        const showWCModal = () => document.getElementById('walletconnect-modal').classList.remove('hidden');
+        const hideWCModal = () => document.getElementById('walletconnect-modal').classList.add('hidden');
+
         // --- WALLET MANAGEMENT --- //
+
+        const onWalletConnected = async (provider) => {
+            try {
+                currentProvider = new ethers.providers.Web3Provider(provider);
+                currentSigner = currentProvider.getSigner();
+                const address = await currentSigner.getAddress();
+                
+                currentUser = { wallet: { address } };
+                document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+                showScreen('widget-screen');
+                hideWCModal();
+                await populateDropdowns();
+                updateBalance();
+                setupWalletListeners(provider);
+
+            } catch (error) {
+                console.error("Error setting up wallet connection:", error);
+                showStatus('❌ Failed to initialize wallet session.', 'error');
+                disconnectWallet();
+            }
+        };
 
         const connectWallet = async () => {
             try {
                 showStatus('⏳ Connecting wallet...', 'loading');
 
                 if (!window.ethereum) {
-                    return showStatus(isMobile() ? '❌ Please use a DApp browser.' : '❌ Please install a Web3 wallet.', 'error');
+                    return showStatus(isMobile() ? '❌ No wallet found. Try WalletConnect.' : '❌ Please install a Web3 wallet extension.', 'error');
                 }
-
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                if (!accounts || accounts.length === 0) throw new Error('No accounts returned from wallet');
-
-                currentProvider = new ethers.providers.Web3Provider(window.ethereum);
-                currentSigner = currentProvider.getSigner();
-                const address = await currentSigner.getAddress();
-
-                currentUser = { wallet: { address } };
-                document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
-
-                showScreen('widget-screen');
-                await populateDropdowns();
-                updateBalance();
-                setupWalletListeners();
+                
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                await onWalletConnected(window.ethereum);
+                
             } catch (error) {
-                console.error('Wallet connection failed:', error);
+                console.error('Browser wallet connection failed:', error);
                 let msg = '❌ Connection failed. ';
                 if (error.code === 4001) msg += 'Please approve the connection request.';
                 else if (error.code === -32002) msg += 'Please check wallet for pending requests.';
@@ -258,26 +305,72 @@
             }
         };
 
-        const disconnectWallet = () => {
-            currentUser = currentProvider = currentSigner = currentQuote = null;
+        const connectWithWalletConnect = async () => {
+            if (CONFIG.WALLETCONNECT_PROJECT_ID === 'YOUR_WALLETCONNECT_PROJECT_ID') {
+                return showStatus('🔧 Please configure WalletConnect Project ID in the script.', 'error');
+            }
+            try {
+                wcProvider = new WalletConnectProvider.default({
+                    infuraId: null, // Not needed if you provide RPC URLs
+                    rpc: {
+                        1: "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+                        10: "https://mainnet.optimism.io",
+                        56: "https://bsc-dataseed.binance.org/",
+                        130: "https://rpc.unichain.world/",
+                        137: "https://polygon-rpc.com/",
+                        43114: "https://api.avax.network/ext/bc/C/rpc",
+                        59144: "https://rpc.linea.build",
+                        42161: "https://arb1.arbitrum.io/rpc",
+                        8453: "https://mainnet.base.org",
+                    },
+                    qrcode: false // We handle QR code generation manually
+                });
+
+                wcProvider.on("uri", (uri) => {
+                    const qrCode = new QRCodeStyling({
+                        width: 280,
+                        height: 280,
+                        data: uri,
+                        image: "https://li.fi/logo-circle.png",
+                        dotsOptions: { color: "#4f46e5", type: "rounded" },
+                        backgroundOptions: { color: "#ffffff" },
+                        imageOptions: { crossOrigin: "anonymous", margin: 4 }
+                    });
+                    const qrContainer = document.getElementById("qr-code-container");
+                    qrContainer.innerHTML = '';
+                    qrCode.append(qrContainer);
+                    document.getElementById('mobile-connect-link').href = `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`;
+                    showWCModal();
+                });
+                
+                wcProvider.on("disconnect", () => disconnectWallet());
+
+                await wcProvider.enable();
+                await onWalletConnected(wcProvider);
+
+            } catch (error) {
+                console.error("WalletConnect failed:", error);
+                showStatus('❌ WalletConnect connection cancelled or failed.', 'error');
+                hideWCModal();
+            }
+        };
+
+
+        const disconnectWallet = async () => {
+            if (wcProvider?.connected) {
+                await wcProvider.disconnect();
+            }
+            currentUser = currentProvider = currentSigner = currentQuote = wcProvider = null;
             hideStatus();
             showScreen('auth-screen');
-            if(window.ethereum.removeListener) {
-                 window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-                 window.ethereum.removeListener('chainChanged', handleChainChanged);
-            }
         };
         
         const handleAccountsChanged = (accounts) => accounts.length === 0 ? disconnectWallet() : window.location.reload();
         const handleChainChanged = () => window.location.reload();
 
-        const setupWalletListeners = () => {
-             if(window.ethereum.removeListener) {
-                 window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-                 window.ethereum.removeListener('chainChanged', handleChainChanged);
-            }
-            window.ethereum.on('accountsChanged', handleAccountsChanged);
-            window.ethereum.on('chainChanged', handleChainChanged);
+        const setupWalletListeners = (provider) => {
+             provider.on('accountsChanged', handleAccountsChanged);
+             provider.on('chainChanged', handleChainChanged);
         };
 
 
@@ -466,8 +559,11 @@
             // Wallet buttons
             document.getElementById('metamask-option').addEventListener('click', connectWallet);
             document.getElementById('trust-wallet-option').addEventListener('click', connectWallet);
-            document.getElementById('walletconnect-option').addEventListener('click', () => showStatus('WalletConnect coming soon!', 'loading'));
+            document.getElementById('walletconnect-option').addEventListener('click', connectWithWalletConnect);
             
+            // Modal close button
+            document.getElementById('close-modal-btn').addEventListener('click', hideWCModal);
+
             // Widget controls
             document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
             document.getElementById('swap-btn').addEventListener('click', () => currentQuote ? executeSwap() : getQuote());
