@@ -6,8 +6,8 @@
     <title>TimaxPaySwap - Cross-Chain Swaps</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Import Ethers.js for wallet interactions -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <!-- FIXED: Switched to a CSP-compliant CDN (jsdelivr) to load Ethers.js -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -247,8 +247,11 @@
             swapBtn.disabled = true;
             swapBtn.textContent = 'Getting Quote...';
             document.getElementById('route-info').classList.add('hidden');
+            
+            const tokenResponse = await fetch(`${LIFI_API_URL}/token?chain=${fromChain}&token=${fromToken}`);
+            const fromTokenDetails = await tokenResponse.json();
 
-            const fromAmountInSmallestUnit = ethers.utils.parseUnits(fromAmount, 18); // Assuming 18 decimals
+            const fromAmountInSmallestUnit = ethers.utils.parseUnits(fromAmount, fromTokenDetails.decimals);
 
             const params = new URLSearchParams({
                 fromChain,
