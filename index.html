@@ -10,10 +10,9 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Custom styles for a sleeker look and feel */
         .glass-container {
             background: rgba(255, 255, 255, 0.1);
-            -webkit-backdrop-filter: blur(10px); /* Safari support */
+            -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
             border-radius: 1.5rem;
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -39,7 +38,6 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 20px 0 rgba(79, 70, 229, 0.5);
         }
-        /* Simple dot pattern for background */
         .bg-dots-pattern {
              background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.2) 1px, transparent 0);
              background-size: 25px 25px;
@@ -48,7 +46,7 @@
 </head>
 <body class="bg-gray-900 text-white antialiased">
 
-    <div id="app" class="min-h-screen flex flex-col items-center justify-center p-4">
+    <div id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4">
         
         <header class="w-full max-w-lg mb-8 text-center">
             <h1 class="text-5xl md:text-6xl font-bold header-gradient mb-2">TimaxPaySwap</h1>
@@ -79,25 +77,29 @@
             <p>&copy; 2024 TimaxPaySwap. All rights reserved.</p>
         </footer>
     </div>
+    
+    <!-- FIXED: This is the dedicated container for the React app. It's separate from the content it manages. -->
+    <div id="privy-root"></div>
 
     <script type="module">
-        import { LiFiWidget } from 'https://esm.sh/@lifi/widget@2.7.0';
-        import { PrivyProvider, usePrivy } from 'https://esm.sh/@privy-io/react-auth@1.60.4';
+        // Using stable versions from esm.sh
+        import { LiFiWidget } from 'https://esm.sh/@lifi/widget@2.12.0';
+        import { PrivyProvider, usePrivy } from 'https://esm.sh/@privy-io/react-auth@1.69.2';
         import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
-        import React, { useEffect, useState } from 'https://esm.sh/react@18.2.0';
+        import React, { useEffect, useState, useCallback } from 'https://esm.sh/react@18.2.0';
 
         // --- Configuration ---
-        // IMPORTANT: Replace these placeholder values with your actual keys.
-        const PRIVY_APP_ID = "cmfij4weu00uuju0buawfjemg"; // <-- 🚨 REPLACE WITH YOUR ACTUAL PRIVY APP ID
-        const WALLETCONNECT_PROJECT_ID = "dc14d146c0227704322ac9a46aaed7cd"; // <-- 🚨 REPLACE WITH YOUR WALLETCONNECT PROJECT ID
+        // IMPORTANT: These are placeholders. You should manage these in your Azure deployment settings.
+        const PRIVY_APP_ID = "cmfij4weu00uuju0buawfjemg"; 
+        const WALLETCONNECT_PROJECT_ID = "dc14d146c0227704322ac9a46aaed7cd";
+        const FEE_COLLECTOR_ADDRESS = '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0';
         
         // --- LI.FI Widget Configuration ---
         const widgetConfig = {
-            integrator: 'Timax_Swap',
-            // Example Fee Configuration: 0.5% fee collected in the destination token
+            integrator: 'TimaxPaySwap',
             fee: {
                 amount: 0.005, // 0.5% fee
-                collector: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0', // <-- 🚨 REPLACE WITH YOUR FEE COLLECTOR WALLET ADDRESS
+                collector: FEE_COLLECTOR_ADDRESS,
             },
             variant: 'expandable',
             theme: {
@@ -111,15 +113,44 @@
             },
             walletManagement: {
                 signer: null, // Provided dynamically by Privy
-                connect: async () => {}, // Handled by our custom "Connect Wallet" button
-                disconnect: async () => {} // Handled by our custom "Disconnect" button
+                connect: async () => {},
+                disconnect: async () => {}
             }
         };
 
         // --- React App Component ---
         function App() {
             const { ready, authenticated, user, login, logout, getEthereumProvider } = usePrivy();
-            const [widgetMounted, setWidgetMounted] = useState(false);
+            const [widgetRoot, setWidgetRoot] = useState(null);
+
+            // Using useCallback for stable function references
+            const mountWidget = useCallback(async () => {
+                try {
+                    const provider = await getEthereumProvider();
+                    if (!provider) {
+                        console.error("Ethereum provider not available.");
+                        return;
+                    }
+                    const signer = provider.getSigner();
+                    const configWithSigner = { ...widgetConfig, walletManagement: { ...widgetConfig.walletManagement, signer } };
+                    
+                    const lifiContainer = document.getElementById('lifi-widget-container');
+                    if (lifiContainer) {
+                        const root = createRoot(lifiContainer);
+                        root.render(React.createElement(LiFiWidget, { config: configWithSigner }));
+                        setWidgetRoot(root); // Store the root to unmount later
+                    }
+                } catch (error) {
+                    console.error("Failed to mount widget:", error);
+                }
+            }, [getEthereumProvider]); // Dependency on getEthereumProvider
+
+            const unmountWidget = useCallback(() => {
+                if (widgetRoot) {
+                    widgetRoot.unmount();
+                    setWidgetRoot(null);
+                }
+            }, [widgetRoot]);
 
             useEffect(() => {
                 const authScreen = document.getElementById('auth-screen');
@@ -127,46 +158,39 @@
                 const walletAddressEl = document.getElementById('wallet-address');
 
                 if (ready) {
-                    if (authenticated) {
+                    if (authenticated && user?.wallet) {
                         authScreen.classList.add('hidden');
                         widgetScreen.classList.remove('hidden');
+                        walletAddressEl.textContent = `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}`;
                         
-                        const wallet = user?.wallet;
-                        if (wallet) {
-                            walletAddressEl.textContent = `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`;
-                            
-                            // Dynamically provide the signer to the widget and mount it
-                            if (!widgetMounted) {
-                                getEthereumProvider().then(provider => {
-                                    const signer = provider.getSigner();
-                                    const configWithSigner = { ...widgetConfig, walletManagement: { ...widgetConfig.walletManagement, signer } };
-                                    
-                                    const lifiContainer = document.getElementById('lifi-widget-container');
-                                    if (lifiContainer) {
-                                        const root = createRoot(lifiContainer);
-                                        root.render(React.createElement(LiFiWidget, { config: configWithSigner }));
-                                        setWidgetMounted(true);
-                                    }
-                                });
-                            }
+                        if (!widgetRoot) {
+                            mountWidget();
                         }
                     } else {
                         authScreen.classList.remove('hidden');
                         widgetScreen.classList.add('hidden');
-                        setWidgetMounted(false); // Reset when logged out
+                        unmountWidget();
                     }
                 }
-            }, [ready, authenticated, user, widgetMounted]);
+            }, [ready, authenticated, user, widgetRoot, mountWidget, unmountWidget]);
 
-            // Attach event listeners to our custom buttons
             useEffect(() => {
                 const loginBtn = document.getElementById('privy-login-btn');
                 const logoutBtn = document.getElementById('privy-logout-btn');
-                if(loginBtn) loginBtn.onclick = login;
-                if(logoutBtn) logoutBtn.onclick = logout;
+                
+                const handleLogin = () => login();
+                const handleLogout = () => logout();
+
+                loginBtn?.addEventListener('click', handleLogin);
+                logoutBtn?.addEventListener('click', handleLogout);
+
+                return () => {
+                    loginBtn?.removeEventListener('click', handleLogin);
+                    logoutBtn?.removeEventListener('click', handleLogout);
+                };
             }, [login, logout]);
 
-            return null; // This component only manages DOM, no direct rendering needed.
+            return null;
         }
 
         // --- React Root Component with Privy Provider ---
@@ -177,17 +201,12 @@
                     appId: PRIVY_APP_ID,
                     config: {
                         loginMethods: ['wallet', 'email', 'google', 'sms'],
-                        embeddedWallets: {
-                            createOnLogin: 'users-without-wallets',
-                        },
-                        // Configuration for EVM and Solana chains
+                        embeddedWallets: { createOnLogin: 'users-without-wallets' },
                         supportedChains: [
-                           'eip155:1', 'eip155:10', 'eip155:137', 'eip155:42161', 'eip155:56', 'eip155:8453',
-                           'solana:1399811149' // Solana Mainnet-beta
+                           'eip155:1', 'eip155:10', 'eip155:137', 'eip155:42161', 'eip155:56', 'eip155:8453', // EVM Chains
+                           'solana:1399811149' // Solana Mainnet
                         ],
-                        walletConnect: {
-                            projectId: WALLETCONNECT_PROJECT_ID,
-                        }
+                        walletConnect: { projectId: WALLETCONNECT_PROJECT_ID }
                     },
                 },
                 React.createElement(App)
@@ -195,13 +214,15 @@
         }
 
         // --- Mount React App ---
-        const appContainer = document.getElementById('app');
-        if (appContainer) {
-            const root = createRoot(appContainer);
+        // FIXED: Mount the app to the dedicated 'privy-root' container.
+        const privyRootContainer = document.getElementById('privy-root');
+        if (privyRootContainer) {
+            const root = createRoot(privyRootContainer);
             root.render(React.createElement(Root));
+        } else {
+            console.error("Fatal Error: The 'privy-root' container was not found in the DOM.");
         }
     </script>
 </body>
 </html>
-
 
