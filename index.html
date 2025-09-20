@@ -136,9 +136,34 @@
         let currentUser, currentProvider, currentSigner, currentQuote;
         let allChains = [], allTokens = {}, currentBalance = '0';
 
+        // --- Configuration Loader ---
+        // This function will fetch variables injected by Azure
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/getAppSettings');
+                if (!response.ok) {
+                    console.warn('Could not load Azure App Settings. Using local fallbacks.');
+                    return {
+                        INTEGRATOR_NAME: 'TimaxPaySwap_Local',
+                        FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
+                    };
+                }
+                const appSettings = await response.json();
+                return {
+                    INTEGRATOR_NAME: appSettings.LIFI_INTEGRATOR || 'TimaxPaySwap_Azure',
+                    FEE_COLLECTOR_ADDRESS: appSettings.VITE_FEE_COLLECTOR_ADDRESS || '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
+                };
+            } catch (error) {
+                console.warn('API for App Settings not found. Using local fallbacks.', error);
+                return {
+                    INTEGRATOR_NAME: 'TimaxPaySwap_Local',
+                    FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0'
+                };
+            }
+        }
+        
+        let CONFIG = {};
         const LIFI_API_URL = 'https://li.quest/v1';
-        const INTEGRATOR_NAME = 'Timax_swap';
-        const FEE_COLLECTOR_ADDRESS = '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0';
 
         const fromAmountInput = document.getElementById('from-amount');
         const swapBtn = document.getElementById('swap-btn');
@@ -212,7 +237,7 @@
                 const populateTokens = (chainId, elementId) => {
                     const dropdown = document.getElementById(elementId);
                     dropdown.innerHTML = '';
-                    allTokens[chainId]?.slice(0, 50).forEach(token => { // Increased token options
+                    allTokens[chainId]?.slice(0, 50).forEach(token => {
                         dropdown.add(new Option(token.symbol, token.symbol));
                     });
                 }
@@ -245,7 +270,6 @@
             if (!fromToken) { showStatus('Invalid "from" token selected.', 'error'); updateSwapButton(false); return; }
 
             try {
-                // Sanitize input to prevent ethers errors
                 const parts = fromAmount.split('.');
                 if (parts[1] && parts[1].length > fromToken.decimals) {
                     fromAmount = parts[0] + '.' + parts[1].substring(0, fromToken.decimals);
@@ -256,7 +280,7 @@
                 const params = new URLSearchParams({
                     fromChain, toChain, fromToken: fromTokenSymbol, toToken: toTokenSymbol,
                     fromAddress: currentUser.wallet.address, fromAmount: fromAmountInSmallestUnit.toString(),
-                    integrator: INTEGRATOR_NAME, fee: 0.005,
+                    integrator: CONFIG.INTEGRATOR_NAME, fee: 0.005,
                 });
                 
                 const response = await fetch(`${LIFI_API_URL}/quote?${params}`);
@@ -335,7 +359,9 @@
             showScreen('auth-screen');
         };
 
-        document.addEventListener('DOMContentLoaded', () => {
+        // --- App Initialization ---
+        async function initializeApp() {
+            CONFIG = await loadConfig();
             populateDropdowns();
             document.getElementById('connect-wallet-btn').addEventListener('click', connectWallet);
             document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
@@ -349,7 +375,10 @@
                 fromAmountInput.value = currentBalance;
                 updateSwapButton(false);
             });
-        });
+        }
+
+        initializeApp();
+
     </script>
 </body>
 </html>
