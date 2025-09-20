@@ -1,12 +1,15 @@
- {
-    "name": "lifi-widget-azure-app",
+{
+    "name": "timaxpayswap-api",
     "version": "1.0.0",
-    "description": "Li.Fi Widget integration for Azure Static Web App",
-    "main": "index.html",
+    "description": "Azure Functions API for TimaxPaySwap configuration",
+    "main": "index.js",
     "scripts": {
-      "build": "echo 'Static HTML build complete'",
-      "start": "echo 'Starting static server'"
+      "start": "func start",
+      "test": "echo \"Error: no test specified\" && exit 1"
     },
     "dependencies": {},
-    "devDependencies": {}
+    "devDependencies": {},
+    "engines": {
+      "node": ">=18.0.0"
+    }
   }

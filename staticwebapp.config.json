@@ -4,6 +4,10 @@
     },
     "routes": [
       {
+        "route": "/api/*",
+        "allowedRoles": ["anonymous"]
+      },
+      {
         "route": "/*",
         "headers": {
           "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://li.quest wss:; frame-src 'self'; object-src 'none'; base-uri 'self';",
@@ -15,15 +19,5 @@
     ],
     "platform": {
       "apiRuntime": "node:18"
-    },
-    "appSettings": {
-      "LIFI_API_URL": "@appsetting('LIFI_API_URL')",
-      "LIFI_APPEARANCE": "@appsetting('LIFI_APPEARANCE')",
-      "LIFI_CHAINS": "@appsetting('LIFI_CHAINS')",
-      "LIFI_INTEGRATOR": "@appsetting('LIFI_INTEGRATOR')",
-      "LIFI_THEME": "@appsetting('LIFI_THEME')",
-      "LIFI_TOKENS": "@appsetting('LIFI_TOKENS')",
-      "LIFI_WIDGET_VERSION": "@appsetting('LIFI_WIDGET_VERSION')",
-      "VITE_FEE_COLLECTOR_ADDRESS": "@appsetting('VITE_FEE_COLLECTOR_ADDRESS')"
     }
   }

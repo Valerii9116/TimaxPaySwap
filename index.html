@@ -141,23 +141,57 @@
             };
 
             try {
-                const response = await fetch('/api/getAppSettings');
-                const contentType = response.headers.get("content-type");
+                showStatus('⏳ Loading configuration...', 'loading');
+                
+                const response = await fetch('/api/getAppSettings', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
 
-                if (!response.ok || !contentType || !contentType.includes("application/json")) {
-                    console.warn('Could not load Azure App Settings. Using local fallbacks.');
+                if (!response.ok) {
+                    console.warn(`Config API returned ${response.status}. Using fallbacks.`);
+                    hideStatus();
+                    return localFallbacks;
+                }
+
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    console.warn('Config API did not return JSON. Using fallbacks.');
+                    hideStatus();
                     return localFallbacks;
                 }
                 
                 const appSettings = await response.json();
+                console.log('✅ Successfully loaded configuration from Azure');
 
-                try { appSettings.LIFI_CHAINS = JSON.parse(appSettings.LIFI_CHAINS); } catch (e) { appSettings.LIFI_CHAINS = localFallbacks.LIFI_CHAINS; }
-                try { appSettings.LIFI_TOKENS = JSON.parse(appSettings.LIFI_TOKENS); } catch(e) { appSettings.LIFI_TOKENS = localFallbacks.LIFI_TOKENS; }
+                // Parse JSON strings for arrays
+                if (appSettings.LIFI_CHAINS && typeof appSettings.LIFI_CHAINS === 'string') {
+                    try { 
+                        appSettings.LIFI_CHAINS = JSON.parse(appSettings.LIFI_CHAINS); 
+                    } catch (e) { 
+                        console.warn('Failed to parse LIFI_CHAINS, using fallback');
+                        appSettings.LIFI_CHAINS = localFallbacks.LIFI_CHAINS; 
+                    }
+                }
+
+                if (appSettings.LIFI_TOKENS && typeof appSettings.LIFI_TOKENS === 'string') {
+                    try { 
+                        appSettings.LIFI_TOKENS = JSON.parse(appSettings.LIFI_TOKENS); 
+                    } catch(e) { 
+                        console.warn('Failed to parse LIFI_TOKENS, using fallback');
+                        appSettings.LIFI_TOKENS = localFallbacks.LIFI_TOKENS; 
+                    }
+                }
                 
+                hideStatus();
                 return { ...localFallbacks, ...appSettings };
 
             } catch (error) {
-                console.warn('API for App Settings not found. Using local fallbacks.', error);
+                console.warn('Failed to load configuration from API:', error.message);
+                hideStatus();
                 return localFallbacks;
             }
         }
@@ -168,21 +202,28 @@
         const showStatus = (message, type = 'loading') => {
             document.getElementById('status-container').innerHTML = `<div class="status-message status-${type}">${message}</div>`;
         };
-        const hideStatus = () => document.getElementById('status-container').innerHTML = '';
+        
+        const hideStatus = () => {
+            document.getElementById('status-container').innerHTML = '';
+        };
+        
         const showScreen = (id) => {
             ['auth-screen', 'widget-screen'].forEach(sId => document.getElementById(sId).classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
         };
         
         const updateBalance = async () => {
-             if (!currentSigner) return;
+            if (!currentSigner) return;
             const fromChain = document.getElementById('from-chain').value;
             const fromTokenSymbol = document.getElementById('from-token').value;
             const balanceEl = document.getElementById('from-balance');
             balanceEl.textContent = 'Balance: ...';
 
             const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
-            if (!token) { balanceEl.textContent = 'Balance: -'; return; }
+            if (!token) { 
+                balanceEl.textContent = 'Balance: -'; 
+                return; 
+            }
 
             try {
                 let balanceBN;
@@ -202,12 +243,24 @@
         };
 
         const populateDropdowns = async () => {
-             try {
+            try {
+                showStatus('⏳ Loading chains and tokens...', 'loading');
+                
                 const chainsResponse = await fetch(`${CONFIG.LIFI_API_URL}/chains`);
+                if (!chainsResponse.ok) {
+                    throw new Error(`Failed to fetch chains: ${chainsResponse.status}`);
+                }
+                
                 let availableChains = (await chainsResponse.json()).chains;
+                
                 const tokensResponse = await fetch(`${CONFIG.LIFI_API_URL}/tokens`);
+                if (!tokensResponse.ok) {
+                    throw new Error(`Failed to fetch tokens: ${tokensResponse.status}`);
+                }
+                
                 allTokens = (await tokensResponse.json()).tokens;
 
+                // Filter chains if specific ones are configured
                 if (CONFIG.LIFI_CHAINS && CONFIG.LIFI_CHAINS.length > 0) {
                     const chainSet = new Set(CONFIG.LIFI_CHAINS);
                     allChains = availableChains.filter(chain => chainSet.has(chain.id));
@@ -217,12 +270,15 @@
                 
                 const fromChainEl = document.getElementById('from-chain');
                 const toChainEl = document.getElementById('to-chain');
-                fromChainEl.innerHTML = ''; toChainEl.innerHTML = '';
+                fromChainEl.innerHTML = '';
+                toChainEl.innerHTML = '';
 
                 allChains.forEach(chain => {
                     fromChainEl.add(new Option(chain.name, chain.id));
                     toChainEl.add(new Option(chain.name, chain.id));
                 });
+                
+                // Set default chains
                 fromChainEl.value = allChains[0]?.id || 1; 
                 toChainEl.value = allChains[1]?.id || 137;
 
@@ -231,31 +287,150 @@
                     dropdown.innerHTML = '';
                     let availableTokens = allTokens[chainId] || [];
 
+                    // Filter tokens if specific ones are configured
                     if (CONFIG.LIFI_TOKENS && CONFIG.LIFI_TOKENS.length > 0) {
                         const tokenSet = new Set(CONFIG.LIFI_TOKENS);
                         availableTokens = availableTokens.filter(token => tokenSet.has(token.symbol));
                     }
                     
-                    availableTokens.slice(0, 50).forEach(token => dropdown.add(new Option(token.symbol, token.symbol)));
+                    availableTokens.slice(0, 50).forEach(token => {
+                        dropdown.add(new Option(token.symbol, token.symbol));
+                    });
                 }
 
                 populateTokens(fromChainEl.value, 'from-token');
                 populateTokens(toChainEl.value, 'to-token');
 
-                fromChainEl.onchange = () => { populateTokens(fromChainEl.value, 'from-token'); updateBalance(); };
+                fromChainEl.onchange = () => { 
+                    populateTokens(fromChainEl.value, 'from-token'); 
+                    updateBalance(); 
+                };
                 toChainEl.onchange = () => populateTokens(toChainEl.value, 'to-token');
                 document.getElementById('from-token').onchange = updateBalance;
 
-             } catch(e) { console.error("Failed to populate dropdowns", e); }
+                hideStatus();
+                
+            } catch(error) { 
+                console.error("Failed to populate dropdowns", error);
+                showStatus(`❌ Failed to load data: ${error.message}`, 'error');
+            }
         };
         
-        const getQuote = async () => { /* Logic remains the same, but uses CONFIG now */ };
+        const getQuote = async () => {
+            const fromAmount = fromAmountInput.value;
+            const fromChain = document.getElementById('from-chain').value;
+            const toChain = document.getElementById('to-chain').value;
+            const fromTokenSymbol = document.getElementById('from-token').value;
+            const toTokenSymbol = document.getElementById('to-token').value;
+
+            if (!fromAmount || parseFloat(fromAmount) <= 0) {
+                showStatus('❌ Please enter a valid amount', 'error');
+                return;
+            }
+
+            const fromToken = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
+            const toToken = allTokens[toChain]?.find(t => t.symbol === toTokenSymbol);
+
+            if (!fromToken || !toToken) {
+                showStatus('❌ Invalid token selection', 'error');
+                return;
+            }
+
+            try {
+                showStatus('⏳ Getting quote...', 'loading');
+                swapBtn.disabled = true;
+
+                const fromAmountWei = ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString();
+                
+                const quoteParams = new URLSearchParams({
+                    fromChain: fromChain,
+                    toChain: toChain,
+                    fromToken: fromToken.address,
+                    toToken: toToken.address,
+                    fromAmount: fromAmountWei,
+                    fromAddress: currentUser.wallet.address,
+                    integrator: CONFIG.LIFI_INTEGRATOR
+                });
+
+                const response = await fetch(`${CONFIG.LIFI_API_URL}/quote?${quoteParams}`);
+                if (!response.ok) throw new Error(`Quote failed: ${response.status}`);
+
+                currentQuote = await response.json();
+                
+                const estimatedAmount = ethers.utils.formatUnits(
+                    currentQuote.estimate.toAmount,
+                    toToken.decimals
+                );
+
+                document.getElementById('to-amount').value = parseFloat(estimatedAmount).toFixed(6);
+                document.getElementById('exchange-rate').textContent = 
+                    `1 ${fromTokenSymbol} = ${(parseFloat(estimatedAmount) / parseFloat(fromAmount)).toFixed(6)} ${toTokenSymbol}`;
+                
+                const gasCost = currentQuote.estimate.gasCosts?.[0];
+                if (gasCost) {
+                    const gasInEth = ethers.utils.formatEther(gasCost.amount);
+                    document.getElementById('gas-fee').textContent = `${parseFloat(gasInEth).toFixed(6)} ETH`;
+                }
+
+                document.getElementById('route-info').classList.remove('hidden');
+                swapBtn.textContent = 'Execute Swap';
+                swapBtn.disabled = false;
+                hideStatus();
+
+            } catch (error) {
+                console.error('Quote error:', error);
+                showStatus(`❌ Quote failed: ${error.message}`, 'error');
+                swapBtn.disabled = false;
+                swapBtn.textContent = 'Get Quote';
+            }
+        };
         
-        const executeSwap = async () => { /* Logic remains the same */ };
+        const executeSwap = async () => {
+            if (!currentQuote) return;
+
+            try {
+                showStatus('⏳ Executing swap...', 'loading');
+                swapBtn.disabled = true;
+
+                const txRequest = {
+                    to: currentQuote.transactionRequest.to,
+                    data: currentQuote.transactionRequest.data,
+                    value: currentQuote.transactionRequest.value || '0x0',
+                    gasLimit: currentQuote.transactionRequest.gasLimit,
+                    gasPrice: currentQuote.transactionRequest.gasPrice
+                };
+
+                const tx = await currentSigner.sendTransaction(txRequest);
+                showStatus(`⏳ Transaction sent: ${tx.hash}`, 'loading');
+
+                const receipt = await tx.wait();
+                showStatus(`✅ Swap completed! Hash: ${receipt.transactionHash}`, 'success');
+                
+                // Reset form
+                fromAmountInput.value = '';
+                document.getElementById('to-amount').value = '';
+                document.getElementById('route-info').classList.add('hidden');
+                currentQuote = null;
+                swapBtn.textContent = 'Enter Amount';
+                swapBtn.disabled = true;
+                
+                updateBalance();
+
+            } catch (error) {
+                console.error('Swap error:', error);
+                showStatus(`❌ Swap failed: ${error.message}`, 'error');
+                swapBtn.disabled = false;
+            }
+        };
 
         const connectWallet = async () => {
-             if (typeof window.ethereum === 'undefined') { showStatus('❌ Please install MetaMask!', 'error'); return; }
+            if (typeof window.ethereum === 'undefined') { 
+                showStatus('❌ Please install MetaMask!', 'error'); 
+                return; 
+            }
+            
             try {
+                showStatus('⏳ Connecting wallet...', 'loading');
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 
                 currentProvider = new ethers.providers.Web3Provider(window.ethereum);
@@ -264,8 +439,12 @@
                 
                 currentUser = { wallet: { address } };
                 document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+                
+                hideStatus();
                 showScreen('widget-screen');
+                await populateDropdowns();
                 updateBalance();
+                
             } catch (error) {
                 console.error('Wallet connection failed:', error);
                 showStatus('❌ Connection failed. Please try again.', 'error');
@@ -274,24 +453,92 @@
 
         const disconnectWallet = () => {
             currentUser = currentProvider = currentSigner = currentQuote = null;
+            hideStatus();
             showScreen('auth-screen');
         };
 
+        // Update swap button state
+        const updateSwapButton = () => {
+            const amount = fromAmountInput.value;
+            if (!amount || parseFloat(amount) <= 0) {
+                swapBtn.textContent = 'Enter Amount';
+                swapBtn.disabled = true;
+            } else if (currentQuote) {
+                swapBtn.textContent = 'Execute Swap';
+                swapBtn.disabled = false;
+            } else {
+                swapBtn.textContent = 'Get Quote';
+                swapBtn.disabled = false;
+            }
+        };
+
         async function initializeApp() {
-            CONFIG = await loadConfig();
-            populateDropdowns();
-            document.getElementById('connect-wallet-btn').addEventListener('click', connectWallet);
-            document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
-            swapBtn.addEventListener('click', () => currentQuote ? executeSwap() : getQuote());
-            fromAmountInput.addEventListener('input', () => {
-                currentQuote = null;
-                document.getElementById('route-info').classList.add('hidden');
-            });
-            document.getElementById('max-btn').addEventListener('click', () => { fromAmountInput.value = currentBalance; });
+            try {
+                CONFIG = await loadConfig();
+                console.log('Loaded configuration:', CONFIG);
+                
+                // Set up event listeners
+                document.getElementById('connect-wallet-btn').addEventListener('click', connectWallet);
+                document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
+                
+                swapBtn.addEventListener('click', () => {
+                    if (currentQuote) {
+                        executeSwap();
+                    } else {
+                        getQuote();
+                    }
+                });
+                
+                fromAmountInput.addEventListener('input', () => {
+                    currentQuote = null;
+                    document.getElementById('route-info').classList.add('hidden');
+                    document.getElementById('to-amount').value = '';
+                    updateSwapButton();
+                });
+                
+                document.getElementById('max-btn').addEventListener('click', () => { 
+                    fromAmountInput.value = currentBalance;
+                    updateSwapButton();
+                });
+
+                // Add swap direction functionality
+                document.getElementById('swap-direction').addEventListener('click', () => {
+                    const fromChain = document.getElementById('from-chain');
+                    const toChain = document.getElementById('to-chain');
+                    const fromToken = document.getElementById('from-token');
+                    const toToken = document.getElementById('to-token');
+                    
+                    // Swap chain values
+                    const tempChain = fromChain.value;
+                    fromChain.value = toChain.value;
+                    toChain.value = tempChain;
+                    
+                    // Swap token values
+                    const tempToken = fromToken.value;
+                    fromToken.value = toToken.value;
+                    toToken.value = tempToken;
+                    
+                    // Repopulate tokens for new chains
+                    fromChain.onchange();
+                    toChain.onchange();
+                    
+                    // Clear amounts and quote
+                    fromAmountInput.value = '';
+                    document.getElementById('to-amount').value = '';
+                    currentQuote = null;
+                    document.getElementById('route-info').classList.add('hidden');
+                    updateSwapButton();
+                    updateBalance();
+                });
+
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                showStatus('❌ Failed to initialize application', 'error');
+            }
         }
 
+        // Initialize the application
         initializeApp();
     </script>
 </body>
 </html>
-
