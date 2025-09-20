@@ -17,9 +17,13 @@
       "apiRuntime": "node:18"
     },
     "appSettings": {
+      "LIFI_API_URL": "@appsetting('LIFI_API_URL')",
+      "LIFI_APPEARANCE": "@appsetting('LIFI_APPEARANCE')",
+      "LIFI_CHAINS": "@appsetting('LIFI_CHAINS')",
       "LIFI_INTEGRATOR": "@appsetting('LIFI_INTEGRATOR')",
+      "LIFI_THEME": "@appsetting('LIFI_THEME')",
+      "LIFI_TOKENS": "@appsetting('LIFI_TOKENS')",
+      "LIFI_WIDGET_VERSION": "@appsetting('LIFI_WIDGET_VERSION')",
       "VITE_FEE_COLLECTOR_ADDRESS": "@appsetting('VITE_FEE_COLLECTOR_ADDRESS')"
     }
   }
-  
-  
