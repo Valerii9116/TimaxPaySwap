@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimaxPaySwap - Cross-Chain Swaps</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for a sleeker look and feel */
+        .glass-container {
+            background: rgba(255, 255, 255, 0.1);
+            -webkit-backdrop-filter: blur(10px); /* Safari support */
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        .header-gradient {
+            background: linear-gradient(90deg, #4f46e5, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .privy-button-custom {
+            background-color: #4f46e5;
+            color: white;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39);
+        }
+        .privy-button-custom:hover {
+            background-color: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px 0 rgba(79, 70, 229, 0.5);
+        }
+        /* Simple dot pattern for background */
+        .bg-dots-pattern {
+             background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.2) 1px, transparent 0);
+             background-size: 25px 25px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white antialiased">
+
+    <div id="app" class="min-h-screen flex flex-col items-center justify-center p-4">
+        
+        <header class="w-full max-w-lg mb-8 text-center">
+            <h1 class="text-5xl md:text-6xl font-bold header-gradient mb-2">TimaxPaySwap</h1>
+            <p class="text-gray-300 text-lg">Your gateway to seamless cross-chain swaps.</p>
+        </header>
+
+        <main id="main-content" class="w-full max-w-lg glass-container p-6 md:p-8">
+            <!-- Auth Screen -->
+            <div id="auth-screen" class="text-center">
+                <p class="mb-6 text-gray-200">Connect your wallet to begin swapping assets across any chain, powered by LI.FI and Privy.</p>
+                <button id="privy-login-btn" class="privy-button-custom">
+                    Connect Wallet
+                </button>
+            </div>
+
+            <!-- Widget Screen -->
+            <div id="widget-screen" class="hidden">
+                 <div class="flex justify-between items-center mb-6">
+                    <p id="wallet-address" class="text-sm text-gray-400 bg-gray-800/50 px-3 py-1 rounded-full truncate"></p>
+                    <button id="privy-logout-btn" class="text-sm text-red-400 hover:text-red-300 transition-colors">Disconnect</button>
+                </div>
+                <!-- LI.FI Widget will be mounted here -->
+                <div id="lifi-widget-container"></div>
+            </div>
+        </main>
+        
+        <footer class="mt-8 text-center text-gray-500 text-sm">
+            <p>&copy; 2024 TimaxPaySwap. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script type="module">
+        import { LiFiWidget } from 'https://esm.sh/@lifi/widget@2.7.0';
+        import { PrivyProvider, usePrivy } from 'https://esm.sh/@privy-io/react-auth@1.60.4';
+        import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+        import React, { useEffect, useState } from 'https://esm.sh/react@18.2.0';
+
+        // --- Configuration ---
+        // IMPORTANT: Replace these placeholder values with your actual keys.
+        const PRIVY_APP_ID = "cmfij4weu00uuju0buawfjemg"; // <-- 🚨 REPLACE WITH YOUR ACTUAL PRIVY APP ID
+        const WALLETCONNECT_PROJECT_ID = "dc14d146c0227704322ac9a46aaed7cd"; // <-- 🚨 REPLACE WITH YOUR WALLETCONNECT PROJECT ID
+        
+        // --- LI.FI Widget Configuration ---
+        const widgetConfig = {
+            integrator: 'Timax_Swap',
+            // Example Fee Configuration: 0.5% fee collected in the destination token
+            fee: {
+                amount: 0.005, // 0.5% fee
+                collector: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0', // <-- 🚨 REPLACE WITH YOUR FEE COLLECTOR WALLET ADDRESS
+            },
+            variant: 'expandable',
+            theme: {
+                palette: {
+                    primary: { main: '#4f46e5' },
+                    secondary: { main: '#ec4899' },
+                    background: { paper: '#111827', default: '#030712' },
+                    text: { primary: '#ffffff', secondary: '#d1d5db' }
+                },
+                shape: { borderRadius: 16, borderRadiusSecondary: 12 },
+            },
+            walletManagement: {
+                signer: null, // Provided dynamically by Privy
+                connect: async () => {}, // Handled by our custom "Connect Wallet" button
+                disconnect: async () => {} // Handled by our custom "Disconnect" button
+            }
+        };
+
+        // --- React App Component ---
+        function App() {
+            const { ready, authenticated, user, login, logout, getEthereumProvider } = usePrivy();
+            const [widgetMounted, setWidgetMounted] = useState(false);
+
+            useEffect(() => {
+                const authScreen = document.getElementById('auth-screen');
+                const widgetScreen = document.getElementById('widget-screen');
+                const walletAddressEl = document.getElementById('wallet-address');
+
+                if (ready) {
+                    if (authenticated) {
+                        authScreen.classList.add('hidden');
+                        widgetScreen.classList.remove('hidden');
+                        
+                        const wallet = user?.wallet;
+                        if (wallet) {
+                            walletAddressEl.textContent = `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`;
+                            
+                            // Dynamically provide the signer to the widget and mount it
+                            if (!widgetMounted) {
+                                getEthereumProvider().then(provider => {
+                                    const signer = provider.getSigner();
+                                    const configWithSigner = { ...widgetConfig, walletManagement: { ...widgetConfig.walletManagement, signer } };
+                                    
+                                    const lifiContainer = document.getElementById('lifi-widget-container');
+                                    if (lifiContainer) {
+                                        const root = createRoot(lifiContainer);
+                                        root.render(React.createElement(LiFiWidget, { config: configWithSigner }));
+                                        setWidgetMounted(true);
+                                    }
+                                });
+                            }
+                        }
+                    } else {
+                        authScreen.classList.remove('hidden');
+                        widgetScreen.classList.add('hidden');
+                        setWidgetMounted(false); // Reset when logged out
+                    }
+                }
+            }, [ready, authenticated, user, widgetMounted]);
+
+            // Attach event listeners to our custom buttons
+            useEffect(() => {
+                const loginBtn = document.getElementById('privy-login-btn');
+                const logoutBtn = document.getElementById('privy-logout-btn');
+                if(loginBtn) loginBtn.onclick = login;
+                if(logoutBtn) logoutBtn.onclick = logout;
+            }, [login, logout]);
+
+            return null; // This component only manages DOM, no direct rendering needed.
+        }
+
+        // --- React Root Component with Privy Provider ---
+        function Root() {
+            return React.createElement(
+                PrivyProvider,
+                {
+                    appId: PRIVY_APP_ID,
+                    config: {
+                        loginMethods: ['wallet', 'email', 'google', 'sms'],
+                        embeddedWallets: {
+                            createOnLogin: 'users-without-wallets',
+                        },
+                        // Configuration for EVM and Solana chains
+                        supportedChains: [
+                           'eip155:1', 'eip155:10', 'eip155:137', 'eip155:42161', 'eip155:56', 'eip155:8453',
+                           'solana:1399811149' // Solana Mainnet-beta
+                        ],
+                        walletConnect: {
+                            projectId: WALLETCONNECT_PROJECT_ID,
+                        }
+                    },
+                },
+                React.createElement(App)
+            );
+        }
+
+        // --- Mount React App ---
+        const appContainer = document.getElementById('app');
+        if (appContainer) {
+            const root = createRoot(appContainer);
+            root.render(React.createElement(Root));
+        }
+    </script>
+</body>
+</html>
+
+
