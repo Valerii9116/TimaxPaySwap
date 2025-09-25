@@ -419,7 +419,9 @@
                     fromChain, toChain, fromToken: fromToken.address, toToken: toToken.address,
                     fromAmount: ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString(),
                     fromAddress: currentUser.wallet.address,
-                    integrator: CONFIG.LIFI_INTEGRATOR
+                    integrator: CONFIG.LIFI_INTEGRATOR,
+                    fee: 0.005, // Your 0.5% company fee
+                    feeCollector: CONFIG.VITE_FEE_COLLECTOR_ADDRESS // Your fee collection wallet
                 });
 
                 if (ethers.utils.isAddress(recipientAddress)) {
@@ -567,4 +569,5 @@
     </script>
 </body>
 </html>
+
 
