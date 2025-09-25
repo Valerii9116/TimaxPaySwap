@@ -115,7 +115,7 @@
         // 🔧 CONFIGURATION - Update these values with your settings
         window.TIMAX_CONFIG = {
             // Get your project ID from https://cloud.walletconnect.com
-            WALLETCONNECT_PROJECT_ID: 'dc14d146c0227704322ac9a46aaed7cd', // ⚠️ CHANGE THIS
+            WALLETCONNECT_PROJECT_ID: 'dc14d146c0227704322ac9a46aaed7cd', // ⚠️ Using a public demo ID
 
             // LI.FI API Settings
             LIFI_API_URL: 'https://li.quest/v1',
@@ -401,8 +401,9 @@
                     fromChain, toChain, fromToken: fromToken.address, toToken: toToken.address,
                     fromAmount: ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString(),
                     fromAddress: currentUser.wallet.address,
-                    integrator: CONFIG.LIFI_INTEGRATOR
-                    //, fee: 0.01 // Temporarily removed to debug "Not Found" API error
+                    integrator: CONFIG.LIFI_INTEGRATOR,
+                    order: 'BEST_OUTPUT', // Explicitly ask for best output
+                    slippage: '0.005' // 0.5% slippage
                 });
                 if (ethers.utils.isAddress(recipientAddress)) params.set('toAddress', recipientAddress);
 
@@ -543,7 +544,7 @@
             });
 
             document.getElementById('from-chain').addEventListener('change', (e) => { populateTokenList(e.target.value, 'from-token'); updateBalance(); });
-            document.getElementById('to-chain').addEventListener('change', (e) => populateTokenList(e.target.value, 'to-token'));
+            document.getElementById('to-chain').addEventListener('change', (e) => { populateTokenList(e.target.value, 'to-token'));
             document.getElementById('from-token').addEventListener('change', updateBalance);
 
             if (window.ethereum?.selectedAddress) connectWallet(); else showScreen('auth-screen');
@@ -553,5 +554,4 @@
     </script>
 </body>
 </html>
-
 
