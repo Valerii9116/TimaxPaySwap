@@ -135,7 +135,7 @@
 
             <div id="auth-screen" class="text-center">
                 <p class="mb-6 text-gray-200">Connect your wallet to begin.</p>
-                <!-- This button will now handle both MetaMask injection and WalletConnect modal -->
+                <!-- Single button to open the WalletConnect modal -->
                 <button id="connect-wallet-btn" class="action-button w-full">Connect Wallet</button>
             </div>
 
@@ -218,7 +218,7 @@
         // --- SCRIPT START --- //
 
         // Global variables
-        let currentUser, currentProvider, currentSigner, currentQuote, wcProvider, html5QrCode, walletconnectModal;
+        let currentUser, currentProvider, currentSigner, currentQuote, wcProvider, html5QrCode, walletConnectModal;
         let allChains = [], allTokens = {}, currentBalance = '0';
         const CONFIG = window.TIMAX_CONFIG;
 
@@ -278,37 +278,19 @@
                 showStatus(`❌ Connection failed: ${error.message}`, 'error');
             }
         };
-
-        // The new, universal connect function
+        
         const connectWallet = async () => {
             if (CONFIG.WALLETCONNECT_PROJECT_ID === 'YOUR_WALLETCONNECT_PROJECT_ID' || !CONFIG.WALLETCONNECT_PROJECT_ID) {
                 return showStatus('🔧 WalletConnect Project ID not configured.', 'error');
             }
             try {
                 showStatus('⏳ Connecting wallet...');
-                // Check for injected provider (e.g., MetaMask on desktop)
-                if (window.ethereum) {
-                    await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    await onWalletConnected(window.ethereum);
-                } else {
-                    // No injected provider, use WalletConnect Modal for universal connection
-                    const ethereumProvider = await WalletConnectEthProvider.default.init({
-                        projectId: CONFIG.WALLETCONNECT_PROJECT_ID,
-                        showQrModal: true, // Use the built-in modal
-                        chains: CONFIG.LIFI_CHAINS,
-                        rpcMap: {
-                            1: 'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-                            10: 'https://mainnet.optimism.io',
-                            137: 'https://polygon-rpc.com/',
-                            42161: 'https://arb1.arbitrum.io/rpc',
-                            // Add other chains as needed
-                        },
-                        optionalChains: CONFIG.LIFI_CHAINS,
-                    });
-                    await ethereumProvider.connect();
-                    await onWalletConnected(ethereumProvider);
-                    wcProvider = ethereumProvider; // Store a reference for disconnection
-                }
+                // Open the modal and wait for the user to select a wallet
+                const { provider } = await walletConnectModal.openModal();
+                
+                // Set the provider globally and handle connection
+                await onWalletConnected(provider);
+                wcProvider = provider; // Store a reference for disconnection
             } catch (error) {
                 console.error("Wallet connection failed:", error);
                 showStatus('❌ Wallet connection failed. Please try again.', 'error');
@@ -526,6 +508,21 @@
         // --- APP INITIALIZATION --- //
 
         function initializeApp() {
+            // Initialize the WalletConnect modal
+            // FIX: Removed .default from the WalletConnectModal constructor call.
+            walletConnectModal = new WalletConnectModal({
+                projectId: CONFIG.WALLETCONNECT_PROJECT_ID,
+                chains: CONFIG.LIFI_CHAINS,
+                rpcMap: {
+                    1: 'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+                    10: 'https://mainnet.optimism.io',
+                    137: 'https://polygon-rpc.com/',
+                    42161: 'https://arb1.arbitrum.io/rpc',
+                    // Add other chains as needed
+                },
+                explorerRecommendedWalletIds: 'NONE',
+            });
+
             // Wallet buttons
             document.getElementById('connect-wallet-btn').addEventListener('click', connectWallet);
             
@@ -570,9 +567,9 @@
                 });
             });
 
-            // Initial check for injected wallet and screen setup
-            if (window.ethereum?.selectedAddress) {
-                onWalletConnected(window.ethereum);
+            // Check if a WalletConnect session already exists to automatically connect
+            if (walletConnectModal.provider.session) {
+                onWalletConnected(walletConnectModal.provider);
             } else {
                 showScreen('auth-screen');
             }
