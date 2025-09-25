@@ -509,8 +509,8 @@
 
         function initializeApp() {
             // Initialize the WalletConnect modal
-            // FIX: Removed .default from the WalletConnectModal constructor call.
-            walletConnectModal = new WalletConnectModal({
+            // FIX: The WalletConnectModal constructor is nested within the global object when loaded from the CDN.
+            walletConnectModal = new WalletConnectModal.WalletConnectModal({
                 projectId: CONFIG.WALLETCONNECT_PROJECT_ID,
                 chains: CONFIG.LIFI_CHAINS,
                 rpcMap: {
