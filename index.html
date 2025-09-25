@@ -241,30 +241,26 @@
         
         // --- WALLET MANAGEMENT --- //
         const onWalletConnected = async (provider) => {
-            try {
-                currentProvider = new ethers.providers.Web3Provider(provider);
-                const network = await currentProvider.getNetwork();
-                
-                currentSigner = currentProvider.getSigner();
-                const address = await currentSigner.getAddress();
-                
-                currentUser = { wallet: { address } };
-                document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
-                
-                showScreen('widget-screen');
-                document.getElementById('from-chain').value = network.chainId;
-                await updateBalance();
+            hideStatus();
+            currentProvider = new ethers.providers.Web3Provider(provider, "any");
+            currentSigner = currentProvider.getSigner();
 
-            } catch (error) {
-                console.error("Error setting up wallet:", error);
-                disconnectWallet();
-            }
+            const address = await currentSigner.getAddress();
+            const network = await currentProvider.getNetwork();
+
+            currentUser = { wallet: { address } };
+            document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+            
+            showScreen('widget-screen');
+            document.getElementById('from-chain').value = network.chainId;
+            await updateBalance();
         };
 
         const disconnectWallet = async () => {
-            await web3Modal.clearCachedProvider();
+            if (web3Modal) await web3Modal.clearCachedProvider();
             currentUser = currentProvider = currentSigner = currentQuote = null;
             showScreen('auth-screen');
+            hideStatus();
         };
         
         const switchWalletNetwork = async (chainId) => {
@@ -468,22 +464,26 @@
                 showStatus('🔧 WalletConnect Project ID is not configured.', 'error');
                 return;
             }
+             await populateDropdowns();
+
+            const supportedChains = allChains.map(c => c.id);
 
             web3Modal = createWeb3Modal({
                 projectId: CONFIG.WALLETCONNECT_PROJECT_ID,
-                chains: defaultChains,
+                chains: supportedChains,
                 themeMode: 'dark',
             });
             
             // Event Listeners
             document.getElementById('connect-wallet-btn').addEventListener('click', async () => {
                  try {
+                    showStatus('⏳ Opening wallet modal...', 'loading');
                     const provider = await web3Modal.connect();
-                    if (!provider) throw new Error('No provider returned from Web3Modal');
+                    if (!provider) throw new Error('No provider returned');
                     await onWalletConnected(provider);
                  } catch(err) {
                     console.error("Connection failed", err);
-                    showStatus('❌ Connection Cancelled', 'error');
+                    showStatus(`❌ Connection failed: ${err.message || 'User rejected request'}`, 'error');
                  }
             });
 
@@ -529,7 +529,6 @@
                 });
             });
 
-            await populateDropdowns();
             showScreen('auth-screen');
         }
 
