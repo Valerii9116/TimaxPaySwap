@@ -402,6 +402,7 @@
                     fromAmount: ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString(),
                     fromAddress: currentUser.wallet.address,
                     integrator: CONFIG.LIFI_INTEGRATOR,
+                    fee: 0.01, // Re-adding the 1% integrator fee
                     order: 'BEST_OUTPUT', // Explicitly ask for best output
                     slippage: '0.005' // 0.5% slippage
                 });
@@ -554,5 +555,4 @@
     </script>
 </body>
 </html>
-
 
