@@ -243,8 +243,19 @@
         const onWalletConnected = async (provider) => {
             hideStatus();
             currentProvider = new ethers.providers.Web3Provider(provider, "any");
-            currentSigner = currentProvider.getSigner();
+            
+            // Listen for accounts changing
+            provider.on("accountsChanged", (accounts) => {
+                if (accounts.length > 0) {
+                    onWalletConnected(provider); // Re-run logic with new account
+                } else {
+                    disconnectWallet();
+                }
+            });
+            // Listen for chain changes
+             provider.on("chainChanged", () => window.location.reload());
 
+            currentSigner = currentProvider.getSigner();
             const address = await currentSigner.getAddress();
             const network = await currentProvider.getNetwork();
 
@@ -476,11 +487,18 @@
             
             // Event Listeners
             document.getElementById('connect-wallet-btn').addEventListener('click', async () => {
-                 try {
-                    showStatus('⏳ Opening wallet modal...', 'loading');
-                    const provider = await web3Modal.connect();
-                    if (!provider) throw new Error('No provider returned');
-                    await onWalletConnected(provider);
+                try {
+                    showStatus('⏳ Opening wallet...', 'loading');
+                    // Prioritize injected provider like MetaMask
+                    if (window.ethereum) {
+                        await window.ethereum.request({ method: "eth_requestAccounts" });
+                        await onWalletConnected(window.ethereum);
+                    } else {
+                        // Fallback to Web3Modal for other wallets
+                        const provider = await web3Modal.connect();
+                        if (!provider) throw new Error('No provider returned');
+                        await onWalletConnected(provider);
+                    }
                  } catch(err) {
                     console.error("Connection failed", err);
                     showStatus(`❌ Connection failed: ${err.message || 'User rejected request'}`, 'error');
