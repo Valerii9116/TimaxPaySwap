@@ -403,6 +403,7 @@
                     fromAddress: currentUser.wallet.address,
                     integrator: CONFIG.LIFI_INTEGRATOR,
                     fee: 0.01, // Re-adding the 1% integrator fee
+                    feeCollector: CONFIG.VITE_FEE_COLLECTOR_ADDRESS, // Add the fee collector address
                     order: 'BEST_OUTPUT', // Explicitly ask for best output
                     slippage: '0.005' // 0.5% slippage
                 });
