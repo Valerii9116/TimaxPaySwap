@@ -203,8 +203,17 @@
 
                 <div id="route-info" class="hidden text-sm text-gray-400 space-y-2">
                     <div class="flex justify-between"><span>Rate:</span><span id="exchange-rate"></span></div>
-                    <div class="flex justify-between"><span>Gas Fee:</span><span id="gas-fee"></span></div>
-                    <div class="flex justify-between"><span>Total Fee (USD):</span><span id="total-fee"></span></div>
+                    
+                    <!-- Fee Breakdown Section -->
+                    <div id="fee-breakdown-container" class="border-t border-gray-700/50 mt-2 pt-2">
+                        <div class="flex justify-between font-medium text-white">
+                            <span>Fee Breakdown</span>
+                            <span id="total-fee-usd"></span>
+                        </div>
+                        <div id="fee-breakdown-list" class="text-gray-400 text-xs space-y-1 mt-1 font-mono">
+                            <!-- Fee details will be injected here by JavaScript -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -494,12 +503,43 @@
                 const rate = (parseFloat(estAmount) / parseFloat(fromAmount)).toFixed(6);
                 document.getElementById('exchange-rate').textContent = `1 ${fromTokenSymbol} ≈ ${rate} ${toTokenSymbol}`;
 
-                const gasCost = currentQuote.estimate.gasCosts?.[0];
-                const gasInNative = gasCost ? ethers.utils.formatUnits(gasCost.amount, gasCost.token.decimals) : '0';
-                document.getElementById('gas-fee').textContent = `${parseFloat(gasInNative).toFixed(5)} ${gasCost.token.symbol}`;
+                // --- Fee Breakdown Logic ---
+                const feeBreakdownList = document.getElementById('fee-breakdown-list');
+                feeBreakdownList.innerHTML = ''; // Clear previous breakdown
 
-                const totalFee = currentQuote.estimate.feeCosts.reduce((sum, fee) => sum + (parseFloat(ethers.utils.formatUnits(fee.amount, fee.token.decimals)) * fee.token.priceUSD), 0);
-                document.getElementById('total-fee').textContent = `$${totalFee.toFixed(2)}`;
+                let totalFeeInUsd = 0;
+
+                // 1. Display Gas Costs
+                currentQuote.estimate.gasCosts?.forEach(cost => {
+                    const gasInNative = ethers.utils.formatUnits(cost.amount, cost.token.decimals);
+                    const gasInUsd = parseFloat(gasInNative) * cost.token.priceUSD;
+                    totalFeeInUsd += gasInUsd;
+                    const feeHtml = `
+                        <div class="flex justify-between items-center">
+                            <span>Network Gas Fee</span>
+                            <span>$${gasInUsd.toFixed(2)} (${parseFloat(gasInNative).toFixed(5)} ${cost.token.symbol})</span>
+                        </div>
+                    `;
+                    feeBreakdownList.insertAdjacentHTML('beforeend', feeHtml);
+                });
+
+                // 2. Display Other Fee Costs (Bridge, Integrator, etc.)
+                currentQuote.estimate.feeCosts?.forEach(fee => {
+                    const feeAmountFormatted = ethers.utils.formatUnits(fee.amount, fee.token.decimals);
+                    const feeInUsd = parseFloat(feeAmountFormatted) * fee.token.priceUSD;
+                    if (feeInUsd < 0.01) return; // Don't show negligible fees
+                    totalFeeInUsd += feeInUsd;
+                    const feeHtml = `
+                        <div class="flex justify-between items-center">
+                            <span>${fee.name}</span>
+                            <span>$${feeInUsd.toFixed(2)} (${parseFloat(feeAmountFormatted).toFixed(5)} ${fee.token.symbol})</span>
+                        </div>
+                    `;
+                    feeBreakdownList.insertAdjacentHTML('beforeend', feeHtml);
+                });
+
+                // 3. Display Total Fee
+                document.getElementById('total-fee-usd').textContent = `≈ $${totalFeeInUsd.toFixed(2)}`;
 
                 document.getElementById('route-info').classList.remove('hidden');
                 document.getElementById('swap-btn').textContent = 'Execute Swap';
@@ -639,6 +679,7 @@
     </script>
 </body>
 </html>
+
 
 
 
