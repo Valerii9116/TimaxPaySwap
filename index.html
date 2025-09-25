@@ -451,7 +451,8 @@
                 // Other fees
                 let totalFeeUSD = 0;
                 currentQuote.estimate.feeCosts.forEach(fee => {
-                    feesContainer.innerHTML += `<div class="flex justify-between"><span>${fee.name}:</span> <span>~$${parseFloat(fee.amountUSD).toFixed(2)}</span></div>`;
+                    const feeName = fee.name === 'Integrator Fee' ? 'TimaxPay Fee' : fee.name;
+                    feesContainer.innerHTML += `<div class="flex justify-between"><span>${feeName}:</span> <span>~$${parseFloat(fee.amountUSD).toFixed(2)}</span></div>`;
                     totalFeeUSD += parseFloat(fee.amountUSD);
                 });
 
@@ -569,5 +570,6 @@
     </script>
 </body>
 </html>
+
 
 
