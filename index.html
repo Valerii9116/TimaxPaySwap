@@ -11,10 +11,7 @@
     <!-- WalletConnect Client SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
-    <!-- QR Code Scanner Library -->
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
-
+    
     <style>
         body { font-family: 'Inter', sans-serif; }
         .glass-container {
@@ -90,21 +87,8 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             width: 90%; max-width: 450px; text-align: center;
         }
-        #qr-code-container, #qr-scanner-container {
+        #qr-code-container {
             margin: 1.5rem auto; background: white; padding: 1rem; border-radius: 1rem;
-        }
-        #qr-scanner-container { width: 300px; height: 300px; }
-
-        /* Route Options Styles */
-        .route-option {
-            background: rgba(0,0,0,0.2); border: 2px solid transparent; border-radius: 1rem;
-            padding: 1rem; margin-top: 0.75rem; cursor: pointer; transition: all 0.2s ease;
-        }
-        .route-option:hover { background: rgba(0,0,0,0.3); }
-        .route-option.selected { border-color: #4f46e5; background: rgba(79, 70, 229, 0.1); }
-        .route-tag {
-            background-color: #4f46e5; color: white; font-size: 0.75rem; font-weight: 600;
-            padding: 0.25rem 0.6rem; border-radius: 9999px;
         }
     </style>
 </head>
@@ -171,6 +155,7 @@
                         <input type="number" placeholder="0.0" class="token-input" id="from-amount" />
                         <select id="from-token" class="token-selector mr-2" aria-label="Select source token"></select>
                     </div>
+                    <div class="text-right text-sm text-gray-400 h-5 mt-1 pr-2" id="from-amount-usd"></div>
                     <select id="from-chain" class="w-full mt-2 token-selector bg-transparent border-none p-0" aria-label="Select source chain"></select>
                 </div>
 
@@ -187,23 +172,13 @@
                     <select id="to-chain" class="w-full mt-2 token-selector bg-transparent border-none p-0" aria-label="Select destination chain"></select>
                 </div>
                 
-                <!-- Custom Recipient Address Section -->
-                <div class="mt-4 text-sm">
-                    <label class="flex items-center text-gray-300">
-                        <input type="checkbox" id="custom-recipient-toggle" class="mr-2 h-4 w-4 rounded bg-gray-700 text-indigo-600 focus:ring-indigo-500 border-gray-600">
-                        Send to a different address
-                    </label>
-                    <div id="custom-recipient-container" class="hidden mt-2 relative">
-                        <input type="text" id="recipient-address" class="token-input w-full !text-sm !pl-3 !pr-10" placeholder="Enter recipient address">
-                        <button id="scan-qr-btn" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2M16 4h2a2 2 0 012 2v2M16 20h2a2 2 0 002-2v-2M8 12h8"></path></svg>
-                        </button>
-                    </div>
-                </div>
-
-                <div id="routes-container" class="mt-4"></div>
-
                 <button id="swap-btn" class="action-button w-full mt-6 mb-4" disabled>Enter Amount</button>
+
+                <div id="route-info" class="hidden text-sm text-gray-400 space-y-2">
+                    <div class="flex justify-between"><span>Rate:</span><span id="exchange-rate"></span></div>
+                    <div class="flex justify-between"><span>Gas Fee:</span><span id="gas-fee"></span></div>
+                    <div class="flex justify-between items-center" id="fee-breakdown"></div>
+                </div>
 
             </div>
         </main>
@@ -215,15 +190,13 @@
     
     <!-- Modals -->
     <div id="walletconnect-modal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-2">Connect Wallet</h2><p class="text-gray-400 mb-4">Scan QR code with your mobile wallet.</p><div id="qr-code-container"></div><a id="mobile-connect-link" href="#" class="action-button w-full text-center block md:hidden">Connect on Mobile</a><button id="close-wc-modal-btn" class="mt-4 text-gray-400 hover:text-white">Cancel</button></div></div>
-    <div id="qr-scanner-modal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-2">Scan QR Code</h2><p class="text-gray-400 mb-4">Point your camera at a wallet QR code.</p><div id="qr-scanner-container"></div><button id="close-qr-modal-btn" class="mt-4 text-gray-400 hover:text-white">Cancel</button></div></div>
 
     <script>
         // --- SCRIPT START --- //
 
         // Global variables
-        let currentUser, currentProvider, currentSigner, selectedRoute, wcProvider;
-        let allChains = [], allTokens = {}, allRoutes = [], currentBalance = '0';
-        let html5QrCode;
+        let currentUser, currentProvider, currentSigner, currentQuote, wcProvider;
+        let allChains = [], allTokens = {}, currentBalance = '0';
         const CONFIG = window.TIMAX_CONFIG;
 
         // --- UI & UTILITY FUNCTIONS --- //
@@ -237,31 +210,6 @@
         };
         const showModal = (id) => document.getElementById(id).classList.remove('hidden');
         const hideModal = (id) => document.getElementById(id).classList.add('hidden');
-
-        // --- QR SCANNER --- //
-
-        const startQrScanner = () => {
-            showModal('qr-scanner-modal');
-            html5QrCode = new Html5Qrcode("qr-scanner-container");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            const onScanSuccess = (decodedText) => {
-                document.getElementById('recipient-address').value = decodedText.replace(/ethereum:/i, ''); // Clean up potential prefixes
-                stopQrScanner();
-            };
-            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(err => {
-                console.error("QR Scanner Error:", err);
-                showStatus('❌ QR Scanner failed to start. Check camera permissions.', 'error');
-                hideModal('qr-scanner-modal');
-            });
-        };
-
-        const stopQrScanner = () => {
-            if (html5QrCode?.isScanning) {
-                html5QrCode.stop().then(() => hideModal('qr-scanner-modal')).catch(err => console.error("Error stopping scanner:", err));
-            } else {
-                hideModal('qr-scanner-modal');
-            }
-        };
 
         // --- WALLET MANAGEMENT --- //
 
@@ -277,7 +225,7 @@
                 showScreen('widget-screen');
                 hideModal('walletconnect-modal');
                 await populateDropdowns();
-                updateBalance();
+                await updateBalance();
                 setupWalletListeners(provider);
             } catch (error) {
                 console.error("Error setting up wallet:", error);
@@ -301,7 +249,9 @@
                     qrcode: false
                 });
                 wcProvider.on("uri", (uri) => {
-                    new QRCodeStyling({ width: 280, height: 280, data: uri, image: "https://li.fi/logo-circle.png", dotsOptions: { color: "#4f46e5", type: "rounded" }, backgroundOptions: { color: "#ffffff" } }).append(document.getElementById("qr-code-container"));
+                    const qrEl = document.getElementById("qr-code-container");
+                    qrEl.innerHTML = '';
+                    new QRCodeStyling({ width: 280, height: 280, data: uri, image: "https://li.fi/logo-circle.png", dotsOptions: { color: "#4f46e5", type: "rounded" }, backgroundOptions: { color: "#ffffff" } }).append(qrEl);
                     document.getElementById('mobile-connect-link').href = uri;
                     showModal('walletconnect-modal');
                 });
@@ -316,7 +266,7 @@
 
         const disconnectWallet = async () => {
             if (wcProvider?.connected) await wcProvider.disconnect();
-            currentUser = currentProvider = currentSigner = selectedRoute = wcProvider = null;
+            currentUser = currentProvider = currentSigner = currentQuote = wcProvider = null;
             showScreen('auth-screen');
         };
 
@@ -350,6 +300,27 @@
                 currentBalance = '0';
             }
         };
+        
+        const updateFromAmountUSD = () => {
+            const fromAmountEl = document.getElementById('from-amount');
+            const fromAmountUSD_El = document.getElementById('from-amount-usd');
+            const amount = parseFloat(fromAmountEl.value);
+
+            if (!amount || isNaN(amount) || amount <= 0) {
+                fromAmountUSD_El.textContent = '';
+                return;
+            }
+            const fromChain = document.getElementById('from-chain').value;
+            const fromTokenSymbol = document.getElementById('from-token').value;
+            const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
+
+            if (token && token.priceUSD) {
+                const usdValue = amount * token.priceUSD;
+                fromAmountUSD_El.textContent = `~$${usdValue.toFixed(2)}`;
+            } else {
+                fromAmountUSD_El.textContent = '';
+            }
+        };
 
         const populateDropdowns = async () => {
             try {
@@ -379,7 +350,7 @@
 
         // --- CORE SWAP LOGIC --- //
 
-        const getRoutes = async () => {
+        const getQuote = async () => {
             const fromAmount = document.getElementById('from-amount').value;
             if (!fromAmount || parseFloat(fromAmount) <= 0) return;
 
@@ -387,91 +358,58 @@
             const toChain = document.getElementById('to-chain').value;
             const fromTokenSymbol = document.getElementById('from-token').value;
             const toTokenSymbol = document.getElementById('to-token').value;
-            const recipientAddress = document.getElementById('recipient-address').value;
-
+           
             const fromToken = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
             const toToken = allTokens[toChain]?.find(t => t.symbol === toTokenSymbol);
             if (!fromToken || !toToken) return showStatus('❌ Invalid token selection', 'error');
 
             try {
-                showStatus('⏳ Finding best routes...', 'loading');
+                showStatus('⏳ Getting quote...', 'loading');
                 document.getElementById('swap-btn').disabled = true;
 
                 const params = new URLSearchParams({
                     fromChain, toChain, fromToken: fromToken.address, toToken: toToken.address,
                     fromAmount: ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString(),
                     fromAddress: currentUser.wallet.address,
-                    integrator: CONFIG.LIFI_INTEGRATOR,
-                    fee: 0.01, // Re-adding the 1% integrator fee
-                    feeCollector: CONFIG.VITE_FEE_COLLECTOR_ADDRESS, // Add the fee collector address
-                    order: 'BEST_OUTPUT', // Explicitly ask for best output
-                    slippage: '0.005' // 0.5% slippage
+                    integrator: CONFIG.LIFI_INTEGRATOR
                 });
-                if (ethers.utils.isAddress(recipientAddress)) params.set('toAddress', recipientAddress);
-
-                const response = await fetch(`${CONFIG.LIFI_API_URL}/routes?${params}`);
+                
+                const response = await fetch(`${CONFIG.LIFI_API_URL}/quote?${params}`);
                 if (!response.ok) throw new Error(await response.text());
-                const { routes } = await response.json();
-                allRoutes = routes;
-                displayRoutes(routes);
+                
+                currentQuote = await response.json();
+                
+                const estAmount = ethers.utils.formatUnits(currentQuote.estimate.toAmount, toToken.decimals);
+                document.getElementById('to-amount').value = parseFloat(estAmount).toFixed(6);
+                const rate = (parseFloat(estAmount) / parseFloat(fromAmount)).toFixed(6);
+                document.getElementById('exchange-rate').textContent = `1 ${fromTokenSymbol} ≈ ${rate} ${toTokenSymbol}`;
+
+                const gasCost = currentQuote.estimate.gasCosts?.[0];
+                const gasInNative = gasCost ? ethers.utils.formatUnits(gasCost.amount, gasCost.token.decimals) : '0';
+                document.getElementById('gas-fee').textContent = `${parseFloat(gasInNative).toFixed(5)} ${gasCost.token.symbol}`;
+                
+                const feeBreakdownEl = document.getElementById('fee-breakdown');
+                feeBreakdownEl.innerHTML = `<span>Total Fees:</span> <span class="font-semibold text-white">~$${currentQuote.estimate.feeCosts.reduce((sum, fee) => sum + parseFloat(fee.amountUSD), 0).toFixed(2)}</span>`;
+                
+                document.getElementById('route-info').classList.remove('hidden');
+                updateSwapButtonState();
                 hideStatus();
             } catch (error) {
-                console.error('Route error:', error);
+                console.error('Quote error:', error);
                 showStatus(`❌ Quote failed: ${error.message || 'Check console'}`, 'error');
             } finally {
-                updateSwapButtonState();
+                document.getElementById('swap-btn').disabled = false;
             }
-        };
-
-        const displayRoutes = (routes) => {
-            const container = document.getElementById('routes-container');
-            container.innerHTML = '';
-            if (routes.length === 0) {
-                container.innerHTML = '<p class="text-center text-gray-400">No routes found for this trade.</p>';
-                return;
-            }
-            routes.forEach((route, index) => {
-                const toToken = allTokens[route.toChainId]?.find(t => t.address === route.toToken.address);
-                const outputAmount = ethers.utils.formatUnits(route.toAmount, toToken.decimals);
-                const totalFeeUsd = route.gasCostUSD + route.feeCostUSD;
-                
-                // Add a tag for the best route
-                const bestTag = route.tags?.includes('RECOMMENDED') ? '<span class="route-tag">Best</span>' : '';
-
-                const routeHtml = `
-                    <div class="route-option" data-route-index="${index}">
-                        <div class="flex justify-between items-center">
-                            <div class="font-bold text-lg">${parseFloat(outputAmount).toFixed(5)} ${toToken.symbol}</div>
-                            <div class="flex items-center gap-2">${bestTag} <span class="text-gray-300">~${route.executionDuration}s</span></div>
-                        </div>
-                        <div class="text-xs text-gray-400 mt-1 flex justify-between">
-                            <span>via ${route.steps[0].toolDetails.name}</span>
-                            <span>Fee: ~$${totalFeeUsd.toFixed(2)}</span>
-                        </div>
-                    </div>`;
-                container.insertAdjacentHTML('beforeend', routeHtml);
-            });
-            // Auto-select the first (best) route
-            selectRoute(0);
-        };
-
-        const selectRoute = (index) => {
-            selectedRoute = allRoutes[index];
-            document.querySelectorAll('.route-option').forEach((el, i) => {
-                el.classList.toggle('selected', i === index);
-            });
-            document.getElementById('to-amount').value = ethers.utils.formatUnits(selectedRoute.toAmount, selectedRoute.toToken.decimals);
-            updateSwapButtonState();
         };
 
         const executeSwap = async () => {
-            if (!selectedRoute) return;
+            if (!currentQuote) return;
             try {
                 showStatus('⏳ Executing swap... Please confirm in your wallet.', 'loading');
                 document.getElementById('swap-btn').disabled = true;
                 
-                const tx = await currentSigner.sendTransaction(selectedRoute.transactionRequest);
-                const sourceChain = allChains.find(c => c.id === selectedRoute.fromChainId);
+                const tx = await currentSigner.sendTransaction(currentQuote.transactionRequest);
+                const sourceChain = allChains.find(c => c.id === parseInt(currentQuote.action.fromChainId));
                 const explorerUrl = sourceChain?.metamask?.blockExplorerUrls?.[0] || `https://etherscan.io`;
                 const explorerLink = `${explorerUrl}/tx/${tx.hash}`;
 
@@ -479,12 +417,11 @@
                 await tx.wait();
                 showStatus(`✅ Swap complete! <a href="${explorerLink}" target="_blank" class="underline">View Receipt</a>`, 'success');
                 
-                // Reset form state
-                ['from-amount', 'to-amount', 'recipient-address'].forEach(id => document.getElementById(id).value = '');
-                document.getElementById('routes-container').innerHTML = '';
-                selectedRoute = null;
+                ['from-amount', 'to-amount'].forEach(id => document.getElementById(id).value = '');
+                currentQuote = null;
                 updateSwapButtonState();
-                updateBalance();
+                updateFromAmountUSD();
+                await updateBalance();
             } catch (error) {
                 console.error('Swap error:', error);
                 showStatus(`❌ Swap failed: ${error.reason || error.message}`, 'error');
@@ -498,11 +435,11 @@
             btn.disabled = true;
             if (!amount || parseFloat(amount) <= 0) {
                 btn.textContent = 'Enter Amount';
-            } else if (allRoutes.length > 0 && selectedRoute) {
+            } else if (currentQuote) {
                 btn.textContent = 'Execute Swap';
                 btn.disabled = false;
             } else {
-                btn.textContent = 'Find Route';
+                btn.textContent = 'Get Quote';
                 btn.disabled = false;
             }
         };
@@ -517,37 +454,40 @@
             
             // Modal close buttons
             document.getElementById('close-wc-modal-btn').addEventListener('click', () => hideModal('walletconnect-modal'));
-            document.getElementById('close-qr-modal-btn').addEventListener('click', stopQrScanner);
-
+            
             // Widget controls
             document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
-            document.getElementById('swap-btn').addEventListener('click', () => selectedRoute ? executeSwap() : getRoutes());
+            document.getElementById('swap-btn').addEventListener('click', () => currentQuote ? executeSwap() : getQuote());
             document.getElementById('max-btn').addEventListener('click', () => { 
                 document.getElementById('from-amount').value = currentBalance;
                 document.getElementById('from-amount').dispatchEvent(new Event('input'));
             });
-            document.getElementById('custom-recipient-toggle').addEventListener('change', (e) => {
-                document.getElementById('custom-recipient-container').classList.toggle('hidden', !e.target.checked);
-            });
-            document.getElementById('scan-qr-btn').addEventListener('click', startQrScanner);
-
-            const resetState = () => {
-                selectedRoute = null; allRoutes = [];
-                document.getElementById('routes-container').innerHTML = '';
+            
+            document.getElementById('from-amount').addEventListener('input', () => {
+                currentQuote = null;
+                document.getElementById('route-info').classList.add('hidden');
                 document.getElementById('to-amount').value = '';
                 updateSwapButtonState();
-            };
-            document.getElementById('from-amount').addEventListener('input', resetState);
-            ['from-chain', 'to-chain', 'from-token', 'to-token'].forEach(id => document.getElementById(id).addEventListener('change', resetState));
-
-            document.getElementById('routes-container').addEventListener('click', (e) => {
-                const routeCard = e.target.closest('.route-option');
-                if (routeCard) selectRoute(parseInt(routeCard.dataset.routeIndex));
+                updateFromAmountUSD();
             });
 
-            document.getElementById('from-chain').addEventListener('change', (e) => { populateTokenList(e.target.value, 'from-token'); updateBalance(); });
-            document.getElementById('to-chain').addEventListener('change', (e) => { populateTokenList(e.target.value, 'to-token'); });
-            document.getElementById('from-token').addEventListener('change', updateBalance);
+            const handleSelectionChange = () => {
+                currentQuote = null;
+                document.getElementById('route-info').classList.add('hidden');
+                updateSwapButtonState();
+            };
+
+            ['from-chain', 'to-chain', 'from-token', 'to-token'].forEach(id => {
+                document.getElementById(id).addEventListener('change', () => {
+                    if (id === 'from-chain') populateTokenList(document.getElementById(id).value, 'from-token');
+                    if (id === 'to-chain') populateTokenList(document.getElementById(id).value, 'to-token');
+                    if (id.startsWith('from-')) {
+                        updateBalance();
+                        updateFromAmountUSD();
+                    }
+                    handleSelectionChange();
+                });
+            });
 
             if (window.ethereum?.selectedAddress) connectWallet(); else showScreen('auth-screen');
         }
