@@ -333,7 +333,7 @@
                     const qrContainer = document.getElementById("qr-code-container");
                     qrContainer.innerHTML = '';
                     qrCode.append(qrContainer);
-                    document.getElementById('mobile-connect-link').href = `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`;
+                    document.getElementById('mobile-connect-link').href = uri; // More generic link for mobile
                     showWCModal();
                 });
                 
@@ -557,7 +557,7 @@
 
             // Wallet buttons
             document.getElementById('metamask-option').addEventListener('click', connectWallet);
-            document.getElementById('trust-wallet-option').addEventListener('click', connectWallet);
+            document.getElementById('trust-wallet-option').addEventListener('click', connectWithWalletConnect);
             document.getElementById('walletconnect-option').addEventListener('click', connectWithWalletConnect);
             
             // Modal close button
@@ -629,4 +629,5 @@
     </script>
 </body>
 </html>
+
 
