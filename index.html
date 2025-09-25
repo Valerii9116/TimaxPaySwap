@@ -443,8 +443,18 @@
             if (CONFIG.LIFI_TOKENS.length > 0) {
                  chainTokens = chainTokens.filter(token => tokenSet.has(token.symbol));
             }
+            // De-duplicate tokens by symbol to prevent multiple WETH, etc.
+            const addedSymbols = new Set();
+            const uniqueTokens = chainTokens.filter(token => {
+                if (addedSymbols.has(token.symbol)) {
+                    return false;
+                }
+                addedSymbols.add(token.symbol);
+                return true;
+            });
+
             // Limit to 100 most popular tokens for performance
-            chainTokens.slice(0, 100).forEach(token => dropdown.add(new Option(token.symbol, token.symbol)));
+            uniqueTokens.slice(0, 100).forEach(token => dropdown.add(new Option(token.symbol, token.symbol)));
         };
 
         // --- CORE SWAP LOGIC --- //
@@ -629,5 +639,6 @@
     </script>
 </body>
 </html>
+
 
 
