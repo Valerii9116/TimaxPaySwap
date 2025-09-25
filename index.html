@@ -544,7 +544,7 @@
             });
 
             document.getElementById('from-chain').addEventListener('change', (e) => { populateTokenList(e.target.value, 'from-token'); updateBalance(); });
-            document.getElementById('to-chain').addEventListener('change', (e) => { populateTokenList(e.target.value, 'to-token'));
+            document.getElementById('to-chain').addEventListener('change', (e) => { populateTokenList(e.target.value, 'to-token'); });
             document.getElementById('from-token').addEventListener('change', updateBalance);
 
             if (window.ethereum?.selectedAddress) connectWallet(); else showScreen('auth-screen');
@@ -554,4 +554,5 @@
     </script>
 </body>
 </html>
+
 
