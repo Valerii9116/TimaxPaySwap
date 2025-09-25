@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; connect-src 'self' https://li.quest wss://*.walletconnect.org https://rpc.walletconnect.com https://explorer-api.walletconnect.com https://*.bridge.walletconnect.org;">
     <title>TimaxPaySwap - Cross-Chain Swaps</title>
+    <!-- We will use a more permissive CSP for this example to ensure all scripts can load -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://explorer.walletconnect.com https://walletconnect.org; connect-src 'self' https://li.quest wss://*.bridge.walletconnect.org https://cdn.jsdelivr.net https://explorer.walletconnect.com https://rpc.walletconnect.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com;">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <!-- Web3Modal Scripts -->
-    <script type="module" src="https://unpkg.com/@web3modal/standalone@3.4.0/dist/index.js"></script>
+    
+    <!-- WalletConnect v2 Libraries -->
+    <!-- This is the new, recommended way to connect wallets, including mobile deep linking -->
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.14.2/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2/dist/index.umd.js"></script>
+
     <!-- QR Code Scanner Library -->
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     
@@ -69,6 +74,14 @@
             background-color: #4f46e5; color: white; border: none; padding: 0 8px; border-radius: 4px;
             font-size: 0.75rem; font-weight: bold; cursor: pointer; margin-left: 8px;
         }
+        .wallet-option {
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 0.75rem; padding: 0.75rem 1rem; margin: 0.5rem 0;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .wallet-option:hover { background: rgba(255,255,255,0.15); }
+        .wallet-option:active { transform: scale(0.98); }
         /* Modal Styles */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -80,10 +93,10 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             width: 90%; max-width: 450px; text-align: center;
         }
-        #qr-scanner-container {
+        #qr-code-container, #qr-scanner-container {
             margin: 1.5rem auto; background: white; padding: 1rem; border-radius: 1rem;
-            width: 300px; height: 300px; 
         }
+        #qr-scanner-container { width: 300px; height: 300px; }
     </style>
 </head>
 <body class="bg-gray-900 text-white antialiased">
@@ -92,8 +105,8 @@
     <script>
         // 🔧 CONFIGURATION - Update these values with your settings
         window.TIMAX_CONFIG = {
-            // ⚠️ CRITICAL: Replace this with your own Project ID from https://cloud.walletconnect.com
-            WALLETCONNECT_PROJECT_ID: 'dc14d146c0227704322ac9a46aaed7cd', 
+            // ⚠️ CRITICAL: Copy your ID from WalletConnect Cloud and paste it here
+            WALLETCONNECT_PROJECT_ID: 'dc14d146c0227704322ac9a46aaed7cd',
 
             // LI.FI API Settings
             LIFI_API_URL: 'https://li.quest/v1',
@@ -122,7 +135,8 @@
 
             <div id="auth-screen" class="text-center">
                 <p class="mb-6 text-gray-200">Connect your wallet to begin.</p>
-                <button id="connect-wallet-btn" class="action-button">Connect Wallet</button>
+                <!-- This button will now handle both MetaMask injection and WalletConnect modal -->
+                <button id="connect-wallet-btn" class="action-button w-full">Connect Wallet</button>
             </div>
 
             <div id="widget-screen" class="hidden">
@@ -150,7 +164,7 @@
                 </div>
 
                 <div class="swap-arrow" id="swap-direction">
-                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 12l-4-4m4 4l4-4m6 8v12m0-12l-4 4m4-4l4 4"></path></svg>
+                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 12l-4-4m4 4l4-4m6 8v12m0-12l-4 4m4-4l4 4"></path></svg>
                 </div>
 
                 <div class="token-input-card">
@@ -162,7 +176,7 @@
                     <select id="to-chain" class="w-full mt-2 token-selector bg-transparent border-none p-0" aria-label="Select destination chain"></select>
                 </div>
                 
-                 <!-- Custom Recipient Address Section -->
+                <!-- Custom Recipient Address Section -->
                 <div class="mt-4 text-sm">
                     <label class="flex items-center text-gray-300">
                         <input type="checkbox" id="custom-recipient-toggle" class="mr-2 h-4 w-4 rounded bg-gray-700 text-indigo-600 focus:ring-indigo-500 border-gray-600">
@@ -187,6 +201,7 @@
                         <!-- Fee details will be injected here by JS -->
                     </div>
                 </div>
+
             </div>
         </main>
 
@@ -195,14 +210,15 @@
         </footer>
     </div>
     
-    <!-- Modals -->
+    <!-- QR Scanner Modal -->
     <div id="qr-scanner-modal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-2">Scan QR Code</h2><p class="text-gray-400 mb-4">Point your camera at a wallet QR code.</p><div id="qr-scanner-container"></div><button id="close-qr-modal-btn" class="mt-4 text-gray-400 hover:text-white">Cancel</button></div></div>
 
-    <script type="module">
+
+    <script>
         // --- SCRIPT START --- //
 
         // Global variables
-        let currentUser, currentProvider, currentSigner, currentQuote, web3Modal, html5QrCode;
+        let currentUser, currentProvider, currentSigner, currentQuote, wcProvider, html5QrCode, walletconnectModal;
         let allChains = [], allTokens = {}, currentBalance = '0';
         const CONFIG = window.TIMAX_CONFIG;
 
@@ -222,14 +238,16 @@
             html5QrCode = new Html5Qrcode("qr-scanner-container");
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             const onScanSuccess = (decodedText) => {
-                document.getElementById('recipient-address').value = decodedText.replace(/ethereum:/i, '');
+                document.getElementById('recipient-address').value = decodedText.replace(/ethereum:/i, ''); // Clean up potential prefixes
                 stopQrScanner();
             };
             html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(err => {
-                showStatus('❌ QR Scanner failed to start.', 'error');
+                console.error("QR Scanner Error:", err);
+                showStatus('❌ QR Scanner failed to start. Check camera permissions.', 'error');
                 hideModal('qr-scanner-modal');
             });
         };
+
         const stopQrScanner = () => {
             if (html5QrCode?.isScanning) {
                 html5QrCode.stop().then(() => hideModal('qr-scanner-modal')).catch(err => console.error("Error stopping scanner:", err));
@@ -237,44 +255,85 @@
                 hideModal('qr-scanner-modal');
             }
         };
-        
+
         // --- WALLET MANAGEMENT --- //
+
         const onWalletConnected = async (provider) => {
             try {
                 currentProvider = new ethers.providers.Web3Provider(provider);
-                const network = await currentProvider.getNetwork();
-                const targetChain = allChains.find(c => c.id === network.chainId);
-                if (!targetChain) {
-                    showStatus(`Unsupported chain selected. Please switch to a supported network.`, 'error');
-                    return disconnectWallet();
-                }
-
                 currentSigner = currentProvider.getSigner();
                 const address = await currentSigner.getAddress();
                 
                 currentUser = { wallet: { address } };
                 document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
-                document.getElementById('from-chain').value = network.chainId;
 
                 showScreen('widget-screen');
-                await populateDropdowns(); // Re-populate to ensure everything is in sync
+                await populateDropdowns();
                 await updateBalance();
-
+                setupWalletListeners(provider);
+                hideStatus();
             } catch (error) {
                 console.error("Error setting up wallet:", error);
                 disconnectWallet();
+                showStatus(`❌ Connection failed: ${error.message}`, 'error');
+            }
+        };
+
+        // The new, universal connect function
+        const connectWallet = async () => {
+            if (CONFIG.WALLETCONNECT_PROJECT_ID === 'YOUR_WALLETCONNECT_PROJECT_ID' || !CONFIG.WALLETCONNECT_PROJECT_ID) {
+                return showStatus('🔧 WalletConnect Project ID not configured.', 'error');
+            }
+            try {
+                showStatus('⏳ Connecting wallet...');
+                // Check for injected provider (e.g., MetaMask on desktop)
+                if (window.ethereum) {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    await onWalletConnected(window.ethereum);
+                } else {
+                    // No injected provider, use WalletConnect Modal for universal connection
+                    const ethereumProvider = await WalletConnectEthProvider.default.init({
+                        projectId: CONFIG.WALLETCONNECT_PROJECT_ID,
+                        showQrModal: true, // Use the built-in modal
+                        chains: CONFIG.LIFI_CHAINS,
+                        rpcMap: {
+                            1: 'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+                            10: 'https://mainnet.optimism.io',
+                            137: 'https://polygon-rpc.com/',
+                            42161: 'https://arb1.arbitrum.io/rpc',
+                            // Add other chains as needed
+                        },
+                        optionalChains: CONFIG.LIFI_CHAINS,
+                    });
+                    await ethereumProvider.connect();
+                    await onWalletConnected(ethereumProvider);
+                    wcProvider = ethereumProvider; // Store a reference for disconnection
+                }
+            } catch (error) {
+                console.error("Wallet connection failed:", error);
+                showStatus('❌ Wallet connection failed. Please try again.', 'error');
             }
         };
 
         const disconnectWallet = async () => {
-            if (web3Modal?.getIsConnected()) {
-                await web3Modal.disconnect();
+            if (wcProvider) {
+                try {
+                    await wcProvider.disconnect();
+                } catch (error) {
+                    console.error("Error disconnecting WalletConnect:", error);
+                }
             }
-            currentUser = currentProvider = currentSigner = currentQuote = null;
+            currentUser = currentProvider = currentSigner = currentQuote = wcProvider = null;
             showScreen('auth-screen');
         };
 
+        const setupWalletListeners = (provider) => {
+            provider.on('accountsChanged', (accounts) => accounts.length === 0 ? disconnectWallet() : window.location.reload());
+            provider.on('chainChanged', () => window.location.reload());
+        };
+
         // --- DATA & STATE MANAGEMENT --- //
+
         const updateBalance = async () => {
             if (!currentSigner) return;
             const fromChain = document.getElementById('from-chain').value;
@@ -305,21 +364,22 @@
             const amount = parseFloat(fromAmountEl.value);
 
             if (!amount || isNaN(amount) || amount <= 0) {
-                fromAmountUSD_El.textContent = ''; return;
+                fromAmountUSD_El.textContent = '';
+                return;
             }
             const fromChain = document.getElementById('from-chain').value;
             const fromTokenSymbol = document.getElementById('from-token').value;
             const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
 
             if (token && token.priceUSD) {
-                fromAmountUSD_El.textContent = `~$${(amount * token.priceUSD).toFixed(2)}`;
+                const usdValue = amount * token.priceUSD;
+                fromAmountUSD_El.textContent = `~$${usdValue.toFixed(2)}`;
             } else {
                 fromAmountUSD_El.textContent = '';
             }
         };
 
         const populateDropdowns = async () => {
-            if (allChains.length > 0) return; // Only fetch once
             try {
                 const [chainsRes, tokensRes] = await Promise.all([fetch(`${CONFIG.LIFI_API_URL}/chains`), fetch(`${CONFIG.LIFI_API_URL}/tokens`)]);
                 const { chains } = await chainsRes.json();
@@ -346,6 +406,7 @@
         };
 
         // --- CORE SWAP LOGIC --- //
+
         const getQuote = async () => {
             const fromAmount = document.getElementById('from-amount').value;
             if (!fromAmount || parseFloat(fromAmount) <= 0) return;
@@ -355,7 +416,7 @@
             const fromTokenSymbol = document.getElementById('from-token').value;
             const toTokenSymbol = document.getElementById('to-token').value;
             const recipientAddress = document.getElementById('recipient-address').value;
-           
+            
             const fromToken = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
             const toToken = allTokens[toChain]?.find(t => t.symbol === toTokenSymbol);
             if (!fromToken || !toToken) return showStatus('❌ Invalid token selection', 'error');
@@ -369,26 +430,35 @@
                     fromAmount: ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString(),
                     fromAddress: currentUser.wallet.address,
                     integrator: CONFIG.LIFI_INTEGRATOR,
-                    fee: 0.005,
-                    feeCollector: CONFIG.VITE_FEE_COLLECTOR_ADDRESS
+                    fee: 0.005, // Your 0.5% company fee
+                    feeCollector: CONFIG.VITE_FEE_COLLECTOR_ADDRESS // Your fee collection wallet
                 });
-                if (ethers.utils.isAddress(recipientAddress)) params.set('toAddress', recipientAddress);
+
+                if (ethers.utils.isAddress(recipientAddress)) {
+                    params.set('toAddress', recipientAddress);
+                }
                 
                 const response = await fetch(`${CONFIG.LIFI_API_URL}/quote?${params}`);
                 if (!response.ok) throw new Error(await response.text());
                 
                 currentQuote = await response.json();
                 
-                document.getElementById('to-amount').value = parseFloat(ethers.utils.formatUnits(currentQuote.estimate.toAmount, toToken.decimals)).toFixed(6);
-                const rate = (parseFloat(ethers.utils.formatUnits(currentQuote.estimate.toAmount, toToken.decimals)) / parseFloat(fromAmount)).toFixed(6);
+                const estAmount = ethers.utils.formatUnits(currentQuote.estimate.toAmount, toToken.decimals);
+                document.getElementById('to-amount').value = parseFloat(estAmount).toFixed(6);
+                const rate = (parseFloat(estAmount) / parseFloat(fromAmount)).toFixed(6);
                 document.getElementById('exchange-rate').textContent = `1 ${fromTokenSymbol} ≈ ${rate} ${toTokenSymbol}`;
 
                 const feesContainer = document.getElementById('fees-container');
                 feesContainer.innerHTML = ''; // Clear previous fees
                 
+                // Gas Fee
                 const gasCost = currentQuote.estimate.gasCosts?.[0];
-                if(gasCost) feesContainer.innerHTML += `<div class="flex justify-between"><span>Network Gas Fee:</span> <span>${parseFloat(ethers.utils.formatUnits(gasCost.amount, gasCost.token.decimals)).toFixed(5)} ${gasCost.token.symbol}</span></div>`;
-                
+                if(gasCost) {
+                    const gasInNative = ethers.utils.formatUnits(gasCost.amount, gasCost.token.decimals);
+                    feesContainer.innerHTML += `<div class="flex justify-between"><span>Network Gas Fee:</span> <span>${parseFloat(gasInNative).toFixed(5)} ${gasCost.token.symbol}</span></div>`;
+                }
+
+                // Other fees
                 let totalFeeUSD = 0;
                 currentQuote.estimate.feeCosts.forEach(fee => {
                     const feeName = fee.name === 'Integrator Fee' ? 'TimaxPay Fee' : fee.name;
@@ -396,8 +466,9 @@
                     totalFeeUSD += parseFloat(fee.amountUSD);
                 });
 
+                // Total
                 totalFeeUSD += parseFloat(currentQuote.estimate.gasCostUSD || 0);
-                feesContainer.innerHTML += `<div class="flex justify-between font-bold text-gray-200 mt-1 pt-1 border-t border-gray-700/50"><span>Total Estimated Fees:</span> <span>~$${totalFeeUSD.toFixed(2)}</span></div>`;
+                 feesContainer.innerHTML += `<div class="flex justify-between font-bold text-gray-200 mt-1 pt-1 border-t border-gray-700/50"><span>Total Estimated Fees:</span> <span>~$${totalFeeUSD.toFixed(2)}</span></div>`;
 
                 document.getElementById('route-info').classList.remove('hidden');
                 updateSwapButtonState();
@@ -413,10 +484,6 @@
         const executeSwap = async () => {
             if (!currentQuote) return;
             try {
-                const walletChainId = await currentSigner.getChainId();
-                if (walletChainId !== currentQuote.action.fromChainId) {
-                   return showStatus(`❌ Wrong network. Please switch to ${allChains.find(c=>c.id === currentQuote.action.fromChainId)?.name}.`, 'error');
-                }
                 showStatus('⏳ Executing swap... Please confirm in your wallet.', 'loading');
                 document.getElementById('swap-btn').disabled = true;
                 
@@ -458,41 +525,24 @@
 
         // --- APP INITIALIZATION --- //
 
-        async function initializeApp() {
-            if (!CONFIG.WALLETCONNECT_PROJECT_ID || CONFIG.WALLETCONNECT_PROJECT_ID === 'YOUR_WALLETCONNECT_PROJECT_ID') {
-                showStatus('🔧 WalletConnect Project ID is not configured. Mobile connections will fail.', 'error');
-            }
-
-            web3Modal = new window.Web3Modal.createWeb3Modal({
-                ethersConfig: {},
-                chains: [],
-                projectId: CONFIG.WALLETCONNECT_PROJECT_ID,
-                enableAnalytics: false
-            });
-
-            web3Modal.subscribeProvider(async ({ provider, isConnected }) => {
-                if (isConnected) {
-                    await onWalletConnected(provider);
-                } else {
-                    disconnectWallet();
-                }
-            });
-
-            await populateDropdowns();
-
-            // Event Listeners
-            document.getElementById('connect-wallet-btn').addEventListener('click', () => web3Modal.open());
-            document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
-            document.getElementById('scan-qr-btn').addEventListener('click', startQrScanner);
+        function initializeApp() {
+            // Wallet buttons
+            document.getElementById('connect-wallet-btn').addEventListener('click', connectWallet);
+            
+            // Modal close buttons
             document.getElementById('close-qr-modal-btn').addEventListener('click', stopQrScanner);
+            
+            // Widget controls
+            document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
             document.getElementById('swap-btn').addEventListener('click', () => currentQuote ? executeSwap() : getQuote());
             document.getElementById('max-btn').addEventListener('click', () => { 
                 document.getElementById('from-amount').value = currentBalance;
                 document.getElementById('from-amount').dispatchEvent(new Event('input'));
             });
-            document.getElementById('custom-recipient-toggle').addEventListener('change', (e) => {
+             document.getElementById('custom-recipient-toggle').addEventListener('change', (e) => {
                 document.getElementById('custom-recipient-container').classList.toggle('hidden', !e.target.checked);
             });
+            document.getElementById('scan-qr-btn').addEventListener('click', startQrScanner);
             
             document.getElementById('from-amount').addEventListener('input', () => {
                 currentQuote = null;
@@ -501,7 +551,7 @@
                 updateSwapButtonState();
                 updateFromAmountUSD();
             });
-            
+
             const handleSelectionChange = () => {
                 currentQuote = null;
                 document.getElementById('route-info').classList.add('hidden');
@@ -510,10 +560,7 @@
 
             ['from-chain', 'to-chain', 'from-token', 'to-token'].forEach(id => {
                 document.getElementById(id).addEventListener('change', () => {
-                    if (id === 'from-chain') {
-                        populateTokenList(document.getElementById(id).value, 'from-token');
-                        if(currentUser) web3Modal.switchNetwork(parseInt(document.getElementById(id).value));
-                    }
+                    if (id === 'from-chain') populateTokenList(document.getElementById(id).value, 'from-token');
                     if (id === 'to-chain') populateTokenList(document.getElementById(id).value, 'to-token');
                     if (id.startsWith('from-')) {
                         updateBalance();
@@ -523,11 +570,15 @@
                 });
             });
 
-            showScreen('auth-screen');
+            // Initial check for injected wallet and screen setup
+            if (window.ethereum?.selectedAddress) {
+                onWalletConnected(window.ethereum);
+            } else {
+                showScreen('auth-screen');
+            }
         }
 
-        initializeApp();
+        document.addEventListener('DOMContentLoaded', initializeApp);
     </script>
 </body>
 </html>
-
