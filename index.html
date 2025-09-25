@@ -199,14 +199,12 @@
 
     <script type="module">
         import { createWeb3Modal } from 'https://unpkg.com/@web3modal/standalone@3.4.0/dist/index.js';
-        // --- SCRIPT START --- //
-
-        // Global variables
+        
         let currentUser, currentProvider, currentSigner, currentQuote, web3Modal, html5QrCode;
         let allChains = [], allTokens = {}, currentBalance = '0';
         const CONFIG = window.TIMAX_CONFIG;
-
-        // --- UI & UTILITY FUNCTIONS --- //
+        
+        // --- UI helpers (kept as you had) ---
         const showStatus = (message, type = 'loading') => { document.getElementById('status-container').innerHTML = `<div class="status-message status-${type}">${message}</div>`; };
         const hideStatus = () => { document.getElementById('status-container').innerHTML = ''; };
         const showScreen = (id) => {
@@ -215,83 +213,144 @@
         };
         const showModal = (id) => document.getElementById(id).classList.remove('hidden');
         const hideModal = (id) => document.getElementById(id).classList.add('hidden');
-
-        // --- QR SCANNER --- //
+        
+        // --- QR scanner ---
         const startQrScanner = () => {
             showModal('qr-scanner-modal');
-            html5QrCode = new Html5Qrcode("qr-scanner-container");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            const onScanSuccess = (decodedText) => {
-                document.getElementById('recipient-address').value = decodedText.replace(/ethereum:/i, '');
-                stopQrScanner();
-            };
-            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(err => {
-                showStatus('❌ QR Scanner failed to start.', 'error');
+            try {
+                html5QrCode = new Html5Qrcode("qr-scanner-container");
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                const onScanSuccess = (decodedText) => {
+                    document.getElementById('recipient-address').value = decodedText.replace(/ethereum:/i, '').trim();
+                    stopQrScanner();
+                };
+                html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+                    .catch(err => {
+                        console.error("QR start failed:", err);
+                        showStatus('❌ QR Scanner failed to start.', 'error');
+                        hideModal('qr-scanner-modal');
+                    });
+            } catch (err) {
+                console.error("QR init error:", err);
+                showStatus('❌ QR Scanner initialization error.', 'error');
                 hideModal('qr-scanner-modal');
-            });
+            }
         };
-        const stopQrScanner = () => {
-            if (html5QrCode?.isScanning) {
-                html5QrCode.stop().then(() => hideModal('qr-scanner-modal')).catch(err => console.error("Error stopping scanner:", err));
-            } else {
+        const stopQrScanner = async () => {
+            try {
+                if (html5QrCode) {
+                    await html5QrCode.stop();
+                    html5QrCode.clear();
+                }
+            } catch (err) {
+                console.warn("Error stopping QR scanner:", err);
+            } finally {
                 hideModal('qr-scanner-modal');
             }
         };
         
-        // --- WALLET MANAGEMENT --- //
-        const onWalletConnected = async (provider) => {
+        // --- Provider utilities ---
+        const providerChainIdToNumber = (chainId) => {
+            // handle hex or number or strings like "0x1"
+            if (!chainId && chainId !== 0) return null;
+            if (typeof chainId === 'number') return chainId;
+            if (typeof chainId === 'string') {
+                if (chainId.startsWith('0x')) return parseInt(chainId, 16);
+                const n = parseInt(chainId, 10);
+                return isNaN(n) ? null : n;
+            }
+            return null;
+        };
+        
+        const switchWalletNetwork = async (targetChainId) => {
+            if (!currentProvider) return false;
             try {
-                currentProvider = new ethers.providers.Web3Provider(provider);
-                const network = await currentProvider.getNetwork();
-                const targetChain = allChains.find(c => c.id === network.chainId);
-                if (!targetChain) {
-                    showStatus(`Unsupported chain selected. Please switch to a supported network.`, 'error');
-                    return disconnectWallet();
-                }
-
-                currentSigner = currentProvider.getSigner();
-                const address = await currentSigner.getAddress();
-                
-                currentUser = { wallet: { address } };
-                document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
-                document.getElementById('from-chain').value = network.chainId;
-
-                showScreen('widget-screen');
-                await populateDropdowns(); // Re-populate to ensure everything is in sync
-                await updateBalance();
-
-            } catch (error) {
-                console.error("Error setting up wallet:", error);
-                disconnectWallet();
+                const hexChainId = '0x' + parseInt(targetChainId).toString(16);
+                // Many providers support wallet_switchEthereumChain
+                await currentProvider.request?.({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: hexChainId }]
+                });
+                return true;
+            } catch (err) {
+                console.warn("Network switch failed:", err);
+                // Some wallets require addChain; we won't try to add automatically here
+                return false;
             }
         };
-
-        const disconnectWallet = async () => {
-            if (web3Modal?.getIsConnected()) {
-                await web3Modal.disconnect();
+        
+        // --- on connect / disconnect ---
+        const onWalletConnected = async (provider) => {
+            try {
+                // Some providers are wrapped (e.g. web3Modal returns an object with .provider); normalize:
+                const rawProvider = provider?.provider ? provider.provider : provider;
+                currentProvider = new ethers.providers.Web3Provider(rawProvider, 'any');
+                currentSigner = currentProvider.getSigner();
+        
+                const network = await currentProvider.getNetwork();
+                const networkId = network?.chainId ?? providerChainIdToNumber(await rawProvider.request?.({ method: 'eth_chainId' }));
+        
+                const targetChain = allChains.find(c => c.id === networkId);
+                if (!targetChain) {
+                    showStatus(`Unsupported chain selected. Please switch to a supported network.`, 'error');
+                    // don't fully disconnect right away - give user a chance to switch
+                    showScreen('widget-screen');
+                    document.getElementById('wallet-address').textContent = 'Unknown chain';
+                    return;
+                }
+        
+                const address = await currentSigner.getAddress();
+                currentUser = { wallet: { address } };
+        
+                document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+                document.getElementById('from-chain').value = networkId;
+        
+                showScreen('widget-screen');
+                await populateDropdowns(true); // force refresh if needed
+                await updateBalance();
+        
+                hideStatus();
+            } catch (error) {
+                console.error("Error setting up wallet:", error);
+                showStatus('❌ Wallet setup failed. See console for details.', 'error');
+                await disconnectWallet();
             }
+        };
+        
+        const disconnectWallet = async () => {
+            try {
+                // Web3Modal provides a disconnect method
+                if (web3Modal) {
+                    try { await web3Modal.disconnect(); } catch(e) { console.warn("web3Modal.disconnect failed:", e); }
+                }
+            } catch (err) { console.warn(err); }
+        
             currentUser = currentProvider = currentSigner = currentQuote = null;
             showScreen('auth-screen');
         };
-
-        // --- DATA & STATE MANAGEMENT --- //
+        
+        // --- Data/state management ---
         const updateBalance = async () => {
-            if (!currentSigner) return;
+            if (!currentSigner || !currentUser) return;
             const fromChain = document.getElementById('from-chain').value;
             const fromTokenSymbol = document.getElementById('from-token').value;
             const balanceEl = document.getElementById('from-balance');
             balanceEl.textContent = 'Balance: ...';
-
+        
             const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
             if (!token) { balanceEl.textContent = 'Balance: -'; currentBalance = '0'; return; }
-
+        
             try {
-                const balanceBN = token.address === ethers.constants.AddressZero
-                    ? await currentProvider.getBalance(currentUser.wallet.address)
-                    : await (new ethers.Contract(token.address, ['function balanceOf(address) view returns (uint256)'], currentProvider)).balanceOf(currentUser.wallet.address);
+                let balanceBN;
+                if (token.address === ethers.constants.AddressZero || token.address === '0x0000000000000000000000000000000000000000') {
+                    balanceBN = await currentProvider.getBalance(currentUser.wallet.address);
+                } else {
+                    const erc20 = new ethers.Contract(token.address, ['function balanceOf(address) view returns (uint256)'], currentProvider);
+                    balanceBN = await erc20.balanceOf(currentUser.wallet.address);
+                }
                 currentBalance = ethers.utils.formatUnits(balanceBN, token.decimals);
-                const balanceInUsd = parseFloat(currentBalance) * token.priceUSD;
-                balanceEl.textContent = `Balance: ${parseFloat(currentBalance).toFixed(4)} (~$${balanceInUsd.toFixed(2)})`;
+                const balanceInUsd = (token.priceUSD && !isNaN(parseFloat(currentBalance))) ? parseFloat(currentBalance) * token.priceUSD : 0;
+                balanceEl.textContent = `Balance: ${parseFloat(currentBalance).toFixed(6)} (~$${balanceInUsd.toFixed(2)})`;
             } catch (error) {
                 console.error("Failed to get balance", error);
                 balanceEl.textContent = 'Balance: -';
@@ -303,102 +362,127 @@
             const fromAmountEl = document.getElementById('from-amount');
             const fromAmountUSD_El = document.getElementById('from-amount-usd');
             const amount = parseFloat(fromAmountEl.value);
-
+        
             if (!amount || isNaN(amount) || amount <= 0) {
                 fromAmountUSD_El.textContent = ''; return;
             }
             const fromChain = document.getElementById('from-chain').value;
             const fromTokenSymbol = document.getElementById('from-token').value;
             const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
-
+        
             if (token && token.priceUSD) {
                 fromAmountUSD_El.textContent = `~$${(amount * token.priceUSD).toFixed(2)}`;
             } else {
                 fromAmountUSD_El.textContent = '';
             }
         };
-
-        const populateDropdowns = async () => {
-            if (allChains.length > 0) return; // Only fetch once
+        
+        // --- Fill dropdowns (improved resilience) ---
+        const populateDropdowns = async (force = false) => {
+            if (allChains.length > 0 && !force) return;
             try {
-                const [chainsRes, tokensRes] = await Promise.all([fetch(`${CONFIG.LIFI_API_URL}/chains`), fetch(`${CONFIG.LIFI_API_URL}/tokens`)]);
-                const { chains } = await chainsRes.json();
-                const { tokens } = await tokensRes.json();
+                showStatus('⏳ Loading chains/tokens...', 'loading');
+                const [chainsRes, tokensRes] = await Promise.all([
+                    fetch(`${CONFIG.LIFI_API_URL}/chains`),
+                    fetch(`${CONFIG.LIFI_API_URL}/tokens`)
+                ]);
+                if (!chainsRes.ok || !tokensRes.ok) {
+                    console.error("LI.FI responses:", chainsRes.status, tokensRes.status);
+                    showStatus('❌ Failed to load chains/tokens from LI.FI', 'error');
+                    return;
+                }
+                const chainsJson = await chainsRes.json();
+                const tokensJson = await tokensRes.json();
+                const chains = chainsJson.chains || [];
+                const tokens = tokensJson.tokens || {};
+        
                 allTokens = tokens;
                 const chainSet = new Set(CONFIG.LIFI_CHAINS);
                 allChains = chains.filter(c => chainSet.has(c.id));
                 const [fromChainEl, toChainEl] = [document.getElementById('from-chain'), document.getElementById('to-chain')];
                 [fromChainEl, toChainEl].forEach(el => { el.innerHTML = ''; allChains.forEach(c => el.add(new Option(c.name, c.id))); });
-                fromChainEl.value = 1; toChainEl.value = 137;
+                // sensible defaults
+                if(!fromChainEl.value) fromChainEl.value = allChains[0]?.id || 1;
+                if(!toChainEl.value) toChainEl.value = allChains.find(c=>c.id!==parseInt(fromChainEl.value))?.id || (allChains[1]?.id || 137);
                 populateTokenList(fromChainEl.value, 'from-token');
                 populateTokenList(toChainEl.value, 'to-token');
-            } catch (error) { console.error("Failed to populate dropdowns", error); }
+                hideStatus();
+            } catch (error) {
+                console.error("Failed to populate dropdowns", error);
+                showStatus('❌ Could not load chain/token data', 'error');
+            }
         };
         
         const populateTokenList = (chainId, elementId) => {
             const dropdown = document.getElementById(elementId);
+            if (!dropdown) return;
             dropdown.innerHTML = '';
             let chainTokens = allTokens[chainId] || [];
             const tokenSet = new Set(CONFIG.LIFI_TOKENS);
             if (tokenSet.size > 0) chainTokens = chainTokens.filter(t => tokenSet.has(t.symbol));
             const uniqueTokens = [...new Map(chainTokens.map(t => [t.symbol, t])).values()];
+            if (uniqueTokens.length === 0) {
+                dropdown.add(new Option('NATIVE', ethers.constants.AddressZero));
+                return;
+            }
             uniqueTokens.slice(0, 100).forEach(t => dropdown.add(new Option(t.symbol, t.symbol)));
         };
-
-        // --- CORE SWAP LOGIC --- //
+        
+        // --- Quote & Execute (kept mostly same, minor robustness) ---
         const getQuote = async () => {
             const fromAmount = document.getElementById('from-amount').value;
             if (!fromAmount || parseFloat(fromAmount) <= 0) return;
-
+        
             const fromChain = document.getElementById('from-chain').value;
             const toChain = document.getElementById('to-chain').value;
             const fromTokenSymbol = document.getElementById('from-token').value;
             const toTokenSymbol = document.getElementById('to-token').value;
             const recipientAddress = document.getElementById('recipient-address').value;
-           
-            const fromToken = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
-            const toToken = allTokens[toChain]?.find(t => t.symbol === toTokenSymbol);
+        
+            const fromToken = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol) || allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol.toUpperCase());
+            const toToken = allTokens[toChain]?.find(t => t.symbol === toTokenSymbol) || allTokens[toChain]?.find(t => t.symbol === toTokenSymbol.toUpperCase());
+        
             if (!fromToken || !toToken) return showStatus('❌ Invalid token selection', 'error');
-
+        
             try {
                 showStatus('⏳ Getting quote...', 'loading');
                 document.getElementById('swap-btn').disabled = true;
-
+        
                 const params = new URLSearchParams({
                     fromChain, toChain, fromToken: fromToken.address, toToken: toToken.address,
                     fromAmount: ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString(),
-                    fromAddress: currentUser.wallet.address,
+                    fromAddress: currentUser?.wallet?.address || '',
                     integrator: CONFIG.LIFI_INTEGRATOR,
                     fee: 0.005,
                     feeCollector: CONFIG.VITE_FEE_COLLECTOR_ADDRESS
                 });
-                if (ethers.utils.isAddress(recipientAddress)) params.set('toAddress', recipientAddress);
-                
+                if (recipientAddress && ethers.utils.isAddress(recipientAddress)) params.set('toAddress', recipientAddress);
+        
                 const response = await fetch(`${CONFIG.LIFI_API_URL}/quote?${params}`);
                 if (!response.ok) throw new Error(await response.text());
-                
+        
                 currentQuote = await response.json();
-                
+        
                 document.getElementById('to-amount').value = parseFloat(ethers.utils.formatUnits(currentQuote.estimate.toAmount, toToken.decimals)).toFixed(6);
                 const rate = (parseFloat(ethers.utils.formatUnits(currentQuote.estimate.toAmount, toToken.decimals)) / parseFloat(fromAmount)).toFixed(6);
                 document.getElementById('exchange-rate').textContent = `1 ${fromTokenSymbol} ≈ ${rate} ${toTokenSymbol}`;
-
+        
                 const feesContainer = document.getElementById('fees-container');
-                feesContainer.innerHTML = ''; // Clear previous fees
-                
+                feesContainer.innerHTML = '';
+        
                 const gasCost = currentQuote.estimate.gasCosts?.[0];
-                if(gasCost) feesContainer.innerHTML += `<div class="flex justify-between"><span>Network Gas Fee:</span> <span>${parseFloat(ethers.utils.formatUnits(gasCost.amount, gasCost.token.decimals)).toFixed(5)} ${gasCost.token.symbol}</span></div>`;
-                
+                if (gasCost) feesContainer.innerHTML += `<div class="flex justify-between"><span>Network Gas Fee:</span> <span>${parseFloat(ethers.utils.formatUnits(gasCost.amount, gasCost.token.decimals)).toFixed(5)} ${gasCost.token.symbol}</span></div>`;
+        
                 let totalFeeUSD = 0;
-                currentQuote.estimate.feeCosts.forEach(fee => {
+                (currentQuote.estimate.feeCosts || []).forEach(fee => {
                     const feeName = fee.name === 'Integrator Fee' ? 'TimaxPay Fee' : fee.name;
                     feesContainer.innerHTML += `<div class="flex justify-between"><span>${feeName}:</span> <span>~$${parseFloat(fee.amountUSD).toFixed(2)}</span></div>`;
-                    totalFeeUSD += parseFloat(fee.amountUSD);
+                    totalFeeUSD += parseFloat(fee.amountUSD || 0);
                 });
-
+        
                 totalFeeUSD += parseFloat(currentQuote.estimate.gasCostUSD || 0);
                 feesContainer.innerHTML += `<div class="flex justify-between font-bold text-gray-200 mt-1 pt-1 border-t border-gray-700/50"><span>Total Estimated Fees:</span> <span>~$${totalFeeUSD.toFixed(2)}</span></div>`;
-
+        
                 document.getElementById('route-info').classList.remove('hidden');
                 updateSwapButtonState();
                 hideStatus();
@@ -409,24 +493,30 @@
                 document.getElementById('swap-btn').disabled = false;
             }
         };
-
+        
         const executeSwap = async () => {
-            if (!currentQuote) return;
+            if (!currentQuote || !currentSigner) return;
             try {
                 const walletChainId = await currentSigner.getChainId();
-                if (walletChainId !== currentQuote.action.fromChainId) {
-                   return showStatus(`❌ Wrong network. Please switch to ${allChains.find(c=>c.id === currentQuote.action.fromChainId)?.name}.`, 'error');
+                const quoteFromChain = providerChainIdToNumber(currentQuote.action.fromChainId);
+                if (walletChainId !== quoteFromChain) {
+                    const didSwitch = await switchWalletNetwork(quoteFromChain);
+                    if (!didSwitch) return showStatus(`❌ Wrong network. Please switch to ${allChains.find(c => c.id === quoteFromChain)?.name || quoteFromChain}.`, 'error');
                 }
                 showStatus('⏳ Executing swap... Please confirm in your wallet.', 'loading');
                 document.getElementById('swap-btn').disabled = true;
-                
-                const tx = await currentSigner.sendTransaction(currentQuote.transactionRequest);
+        
+                // currentQuote.transactionRequest should be compatible with sendTransaction
+                const txRequest = currentQuote.transactionRequest;
+                // Some quotes provide value as decimal string; ensure BigNumber/hex where needed
+                const tx = await currentSigner.sendTransaction(txRequest);
+        
                 const sourceChain = allChains.find(c => c.id === parseInt(currentQuote.action.fromChainId));
-                const explorerUrl = sourceChain?.metamask?.blockExplorerUrls?.[0] || `https://etherscan.io`;
+                const explorerUrl = (sourceChain && sourceChain.explorerUrl) ? sourceChain.explorerUrl : `https://etherscan.io`;
                 const explorerLink = `${explorerUrl}/tx/${tx.hash}`;
-
+        
                 showStatus(`⏳ Tx sent, awaiting confirmation... <a href="${explorerLink}" target="_blank" class="underline">View Explorer</a>`, 'success');
-                
+        
                 ['from-amount', 'to-amount', 'recipient-address'].forEach(id => document.getElementById(id).value = '');
                 currentQuote = null;
                 updateSwapButtonState();
@@ -438,7 +528,7 @@
                 document.getElementById('swap-btn').disabled = false;
             }
         };
-
+        
         const updateSwapButtonState = () => {
             const amount = document.getElementById('from-amount').value;
             const btn = document.getElementById('swap-btn');
@@ -453,45 +543,53 @@
                 btn.disabled = false;
             }
         };
-
-        // --- APP INITIALIZATION --- //
-
+        
+        // --- Initialize web3 modal and app ---
         async function initializeApp() {
             if (!CONFIG.WALLETCONNECT_PROJECT_ID || CONFIG.WALLETCONNECT_PROJECT_ID === 'YOUR_WALLETCONNECT_PROJECT_ID') {
                 showStatus('🔧 WalletConnect Project ID is not configured. Mobile connections will fail.', 'error');
             }
-
+        
+            // Create Web3Modal - use minimal config and explicit connect() call later
             web3Modal = createWeb3Modal({
-                ethersConfig: {},
-                chains: [],
                 projectId: CONFIG.WALLETCONNECT_PROJECT_ID,
+                // optional UI metadata
+                metadata: {
+                    name: "TimaxPaySwap",
+                    description: "TimaxPaySwap - Cross-chain swaps",
+                    url: window.location.origin
+                },
+                // keep chains empty here; we'll handle chain switching via provider
+                chains: [],
                 enableAnalytics: false
             });
-
-            web3Modal.subscribeProvider(async ({ provider, isConnected }) => {
-                if (isConnected) {
+        
+            // Event listeners and UI wiring
+            document.getElementById('connect-wallet-btn').addEventListener('click', async () => {
+                try {
+                    showStatus('⏳ Opening wallet modal...', 'loading');
+                    // Explicitly call connect() which resolves to a provider
+                    const provider = await web3Modal.connect();
+                    if (!provider) throw new Error('No provider returned');
                     await onWalletConnected(provider);
-                } else {
-                    disconnectWallet();
+                } catch (err) {
+                    console.error("Connect failed:", err);
+                    showStatus(`❌ Connection failed: ${err.message || err}`, 'error');
                 }
             });
-
-            await populateDropdowns();
-
-            // Event Listeners
-            document.getElementById('connect-wallet-btn').addEventListener('click', () => web3Modal.open());
+        
             document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
             document.getElementById('scan-qr-btn').addEventListener('click', startQrScanner);
             document.getElementById('close-qr-modal-btn').addEventListener('click', stopQrScanner);
             document.getElementById('swap-btn').addEventListener('click', () => currentQuote ? executeSwap() : getQuote());
-            document.getElementById('max-btn').addEventListener('click', () => { 
+            document.getElementById('max-btn').addEventListener('click', () => {
                 document.getElementById('from-amount').value = currentBalance;
                 document.getElementById('from-amount').dispatchEvent(new Event('input'));
             });
             document.getElementById('custom-recipient-toggle').addEventListener('change', (e) => {
                 document.getElementById('custom-recipient-container').classList.toggle('hidden', !e.target.checked);
             });
-            
+        
             document.getElementById('from-amount').addEventListener('input', () => {
                 currentQuote = null;
                 document.getElementById('route-info').classList.add('hidden');
@@ -499,33 +597,36 @@
                 updateSwapButtonState();
                 updateFromAmountUSD();
             });
-            
+        
             const handleSelectionChange = () => {
                 currentQuote = null;
                 document.getElementById('route-info').classList.add('hidden');
                 updateSwapButtonState();
             };
-
+        
             ['from-chain', 'to-chain', 'from-token', 'to-token'].forEach(id => {
-                document.getElementById(id).addEventListener('change', () => {
+                document.getElementById(id).addEventListener('change', async () => {
                     if (id === 'from-chain') {
                         populateTokenList(document.getElementById(id).value, 'from-token');
-                        if(currentUser) web3Modal.switchNetwork(parseInt(document.getElementById(id).value));
+                        // If a wallet is connected, ask the provider to switch network for the user
+                        const target = parseInt(document.getElementById(id).value);
+                        if (currentProvider) await switchWalletNetwork(target);
                     }
                     if (id === 'to-chain') populateTokenList(document.getElementById(id).value, 'to-token');
                     if (id.startsWith('from-')) {
-                        updateBalance();
+                        await updateBalance();
                         updateFromAmountUSD();
                     }
                     handleSelectionChange();
                 });
             });
-
+        
+            await populateDropdowns();
             showScreen('auth-screen');
         }
-
+        
         initializeApp();
-    </script>
+        </script>        
 </body>
 </html>
 
