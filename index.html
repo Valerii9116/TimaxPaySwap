@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Definitive Content Security Policy to fix connection errors -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; connect-src 'self' https://li.quest wss://*.walletconnect.com wss://relay.walletconnect.com https://explorer-api.walletconnect.com; img-src 'self' data: blob: https://*.walletconnect.com https://li.fi; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;">
     <title>TimaxPaySwap - Cross-Chain Swaps</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -200,6 +198,7 @@
     <div id="qr-scanner-modal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-2">Scan QR Code</h2><p class="text-gray-400 mb-4">Point your camera at a wallet QR code.</p><div id="qr-scanner-container"></div><button id="close-qr-modal-btn" class="mt-4 text-gray-400 hover:text-white">Cancel</button></div></div>
 
     <script type="module">
+        import { createWeb3Modal } from 'https://unpkg.com/@web3modal/standalone@3.4.0/dist/index.js';
         // --- SCRIPT START --- //
 
         // Global variables
@@ -462,7 +461,7 @@
                 showStatus('🔧 WalletConnect Project ID is not configured. Mobile connections will fail.', 'error');
             }
 
-            web3Modal = new window.Web3Modal.createWeb3Modal({
+            web3Modal = createWeb3Modal({
                 ethersConfig: {},
                 chains: [],
                 projectId: CONFIG.WALLETCONNECT_PROJECT_ID,
