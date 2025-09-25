@@ -11,6 +11,9 @@
     <!-- WalletConnect Client SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <!-- QR Code Scanner Library -->
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
 
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -85,10 +88,23 @@
         .modal-content {
             background: #1f2937; padding: 2rem; border-radius: 1.5rem;
             border: 1px solid rgba(255, 255, 255, 0.2);
-            width: 90%; max-width: 400px; text-align: center;
+            width: 90%; max-width: 450px; text-align: center;
         }
-        #qr-code-container {
+        #qr-code-container, #qr-scanner-container {
             margin: 1.5rem auto; background: white; padding: 1rem; border-radius: 1rem;
+        }
+        #qr-scanner-container { width: 300px; height: 300px; }
+
+        /* Route Options Styles */
+        .route-option {
+            background: rgba(0,0,0,0.2); border: 2px solid transparent; border-radius: 1rem;
+            padding: 1rem; margin-top: 0.75rem; cursor: pointer; transition: all 0.2s ease;
+        }
+        .route-option:hover { background: rgba(0,0,0,0.3); }
+        .route-option.selected { border-color: #4f46e5; background: rgba(79, 70, 229, 0.1); }
+        .route-tag {
+            background-color: #4f46e5; color: white; font-size: 0.75rem; font-weight: 600;
+            padding: 0.25rem 0.6rem; border-radius: 9999px;
         }
     </style>
 </head>
@@ -106,29 +122,14 @@
             LIFI_INTEGRATOR: 'Timax_swap', // ⚠️ CHANGE THIS to your registered integrator name
 
             // Supported Chains (Chain IDs) - Add/remove as needed
-            LIFI_CHAINS: [
-                1,      // Ethereum
-                10,     // Optimism
-                130,    // Unichain
-                59144,  // Linea 
-                43114,  // Avalanche 
-                137,    // Polygon
-                42161,  // Arbitrum
-                56,     // BSC
-                8453    // Base
-            ],
+            LIFI_CHAINS: [ 1, 10, 130, 59144, 43114, 137, 42161, 56, 8453 ],
 
             // Supported Tokens - Add/remove as needed  
-            LIFI_TOKENS: [
-                'ETH', 'WETH', 'USDC', 'USDT', 'DAI', 
-                'MATIC', 'BNB', 'WBTC', 'UNI', 'LINK'
-            ],
+            LIFI_TOKENS: [ 'ETH', 'WETH', 'USDC', 'USDT', 'DAI', 'MATIC', 'BNB', 'WBTC', 'UNI', 'LINK' ],
 
             // Your fee collector wallet address
             VITE_FEE_COLLECTOR_ADDRESS: '0x34accc793fD8C2A8e262C8C95b18D706bc6022f0' // ⚠️ CHANGE THIS
         };
-
-        // Debug info
         console.log('📝 TimaxPaySwap Configuration Loaded:', window.TIMAX_CONFIG);
     </script>
 
@@ -142,24 +143,11 @@
         <main id="main-content" class="w-full max-w-lg glass-container p-6 md:p-8">
 
             <div id="auth-screen" class="text-center">
-                <p class="mb-6 text-gray-200">Connect your wallet to begin swapping assets across any chain, powered by LI.FI.</p>
-
-                <!-- Mobile-friendly wallet connection options -->
+                <p class="mb-6 text-gray-200">Connect your wallet to begin.</p>
                 <div id="wallet-options">
-                    <div id="metamask-option" class="wallet-option">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.5 12.5C22.5 18.02 18.02 22.5 12.5 22.5C6.98 22.5 2.5 18.02 2.5 12.5C2.5 6.98 6.98 2.5 12.5 2.5C18.02 2.5 22.5 6.98 22.5 12.5Z" fill="#E2761B"></path><path d="M22.5 12.5C22.5 18.02 18.02 22.5 12.5 22.5C6.98 22.5 2.5 18.02 2.5 12.5C2.5 6.98 6.98 2.5 12.5 2.5C18.02 2.5 22.5 6.98 22.5 12.5Z" fill="url(#paint0_linear_14_4)"></path><path d="M12.5 2.5C18.02 2.5 22.5 6.98 22.5 12.5C22.5 18.02 18.02 22.5 12.5 22.5C6.98 22.5 2.5 18.02 2.5 12.5C2.5 6.98 6.98 2.5 12.5 2.5" fill="#E2761B"></path><path d="M16.29 6.84L14.6 9.42L12.5 7.9L10.4 9.42L8.71 6.84L6.5 10.33V15.79L8.71 17.17L10.4 15.34L12.5 16.71L14.6 15.34L16.29 17.17L18.5 15.79V10.33L16.29 6.84Z" fill="white"></path><defs><linearGradient id="paint0_linear_14_4" x1="12.5" y1="2.5" x2="12.5" y2="22.5" gradientUnits="userSpaceOnUse"><stop stop-color="#E2761B"></stop><stop offset="1" stop-color="#D95C2B"></stop></linearGradient></defs></svg>
-                        <span>MetaMask</span>
-                    </div>
-
-                    <div id="walletconnect-option" class="wallet-option">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 9.5C8.5 6.5 13.5 6.5 16.5 9.5L17.5 10.5C17.8 10.8 17.8 11.2 17.5 11.5L16.5 12.5C16.2 12.8 15.8 12.8 15.5 12.5L14.8 11.8C12.8 9.8 9.2 9.8 7.2 11.8L6.5 12.5C6.2 12.8 5.8 12.8 5.5 12.5L4.5 11.5C4.2 11.2 4.2 10.8 4.5 10.5L5.5 9.5Z" fill="#3B99FC"></path></svg>
-                        <span>WalletConnect</span>
-                    </div>
-
-                    <div id="trust-wallet-option" class="wallet-option">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 7V12C3 17.55 6.84 22.74 12 24C17.16 22.74 21 17.55 21 12V7L12 2Z" fill="#3375BB"></path><path d="M12 22C16.42 20.92 19 16.76 19 12.5V8.5L12 5.5L5 8.5V12.5C5 16.76 7.58 20.92 12 22Z" fill="white"></path></svg>
-                        <span>Trust Wallet</span>
-                    </div>
+                    <div id="metamask-option" class="wallet-option"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.5 12.5C22.5 18.02 18.02 22.5 12.5 22.5C6.98 22.5 2.5 18.02 2.5 12.5C2.5 6.98 6.98 2.5 12.5 2.5C18.02 2.5 22.5 6.98 22.5 12.5Z" fill="#E2761B"></path><path d="M22.5 12.5C22.5 18.02 18.02 22.5 12.5 22.5C6.98 22.5 2.5 18.02 2.5 12.5C2.5 6.98 6.98 2.5 12.5 2.5C18.02 2.5 22.5 6.98 22.5 12.5Z" fill="url(#paint0_linear_14_4)"></path><path d="M12.5 2.5C18.02 2.5 22.5 6.98 22.5 12.5C22.5 18.02 18.02 22.5 12.5 22.5C6.98 22.5 2.5 18.02 2.5 12.5C2.5 6.98 6.98 2.5 12.5 2.5" fill="#E2761B"></path><path d="M16.29 6.84L14.6 9.42L12.5 7.9L10.4 9.42L8.71 6.84L6.5 10.33V15.79L8.71 17.17L10.4 15.34L12.5 16.71L14.6 15.34L16.29 17.17L18.5 15.79V10.33L16.29 6.84Z" fill="white"></path><defs><linearGradient id="paint0_linear_14_4" x1="12.5" y1="2.5" x2="12.5" y2="22.5" gradientUnits="userSpaceOnUse"><stop stop-color="#E2761B"></stop><stop offset="1" stop-color="#D95C2B"></stop></linearGradient></defs></svg> <span>MetaMask</span></div>
+                    <div id="walletconnect-option" class="wallet-option"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 9.5C8.5 6.5 13.5 6.5 16.5 9.5L17.5 10.5C17.8 10.8 17.8 11.2 17.5 11.5L16.5 12.5C16.2 12.8 15.8 12.8 15.5 12.5L14.8 11.8C12.8 9.8 9.2 9.8 7.2 11.8L6.5 12.5C6.2 12.8 5.8 12.8 5.5 12.5L4.5 11.5C4.2 11.2 4.2 10.8 4.5 10.5L5.5 9.5Z" fill="#3B99FC"></path></svg> <span>WalletConnect</span></div>
+                    <div id="trust-wallet-option" class="wallet-option"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 7V12C3 17.55 6.84 22.74 12 24C17.16 22.74 21 17.55 21 12V7L12 2Z" fill="#3375BB"></path><path d="M12 22C16.42 20.92 19 16.76 19 12.5V8.5L12 5.5L5 8.5V12.5C5 16.76 7.58 20.92 12 22Z" fill="white"></path></svg> <span>Trust Wallet</span></div>
                 </div>
             </div>
 
@@ -198,23 +186,25 @@
                     </div>
                     <select id="to-chain" class="w-full mt-2 token-selector bg-transparent border-none p-0" aria-label="Select destination chain"></select>
                 </div>
+                
+                <!-- Custom Recipient Address Section -->
+                <div class="mt-4 text-sm">
+                    <label class="flex items-center text-gray-300">
+                        <input type="checkbox" id="custom-recipient-toggle" class="mr-2 h-4 w-4 rounded bg-gray-700 text-indigo-600 focus:ring-indigo-500 border-gray-600">
+                        Send to a different address
+                    </label>
+                    <div id="custom-recipient-container" class="hidden mt-2 relative">
+                        <input type="text" id="recipient-address" class="token-input w-full !text-sm !pl-3 !pr-10" placeholder="Enter recipient address">
+                        <button id="scan-qr-btn" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2M16 4h2a2 2 0 012 2v2M16 20h2a2 2 0 002-2v-2M8 12h8"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="routes-container" class="mt-4"></div>
 
                 <button id="swap-btn" class="action-button w-full mt-6 mb-4" disabled>Enter Amount</button>
 
-                <div id="route-info" class="hidden text-sm text-gray-400 space-y-2">
-                    <div class="flex justify-between"><span>Rate:</span><span id="exchange-rate"></span></div>
-                    
-                    <!-- Fee Breakdown Section -->
-                    <div id="fee-breakdown-container" class="border-t border-gray-700/50 mt-2 pt-2">
-                        <div class="flex justify-between font-medium text-white">
-                            <span>Fee Breakdown</span>
-                            <span id="total-fee-usd"></span>
-                        </div>
-                        <div id="fee-breakdown-list" class="text-gray-400 text-xs space-y-1 mt-1 font-mono">
-                            <!-- Fee details will be injected here by JavaScript -->
-                        </div>
-                    </div>
-                </div>
             </div>
         </main>
 
@@ -223,45 +213,55 @@
         </footer>
     </div>
     
-    <!-- WalletConnect Modal -->
-    <div id="walletconnect-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2 class="text-2xl font-bold mb-2">Connect Wallet</h2>
-            <p class="text-gray-400 mb-4">Scan QR code with your mobile wallet or use the mobile link.</p>
-            <div id="qr-code-container"></div>
-            <a id="mobile-connect-link" href="#" class="action-button w-full text-center block md:hidden">Connect on Mobile</a>
-            <button id="close-modal-btn" class="mt-4 text-gray-400 hover:text-white">Cancel</button>
-        </div>
-    </div>
-
+    <!-- Modals -->
+    <div id="walletconnect-modal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-2">Connect Wallet</h2><p class="text-gray-400 mb-4">Scan QR code with your mobile wallet.</p><div id="qr-code-container"></div><a id="mobile-connect-link" href="#" class="action-button w-full text-center block md:hidden">Connect on Mobile</a><button id="close-wc-modal-btn" class="mt-4 text-gray-400 hover:text-white">Cancel</button></div></div>
+    <div id="qr-scanner-modal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-2">Scan QR Code</h2><p class="text-gray-400 mb-4">Point your camera at a wallet QR code.</p><div id="qr-scanner-container"></div><button id="close-qr-modal-btn" class="mt-4 text-gray-400 hover:text-white">Cancel</button></div></div>
 
     <script>
         // --- SCRIPT START --- //
 
         // Global variables
-        let currentUser, currentProvider, currentSigner, currentQuote, wcProvider;
-        let allChains = [], allTokens = {}, currentBalance = '0';
-        let CONFIG = window.TIMAX_CONFIG;
+        let currentUser, currentProvider, currentSigner, selectedRoute, wcProvider;
+        let allChains = [], allTokens = {}, allRoutes = [], currentBalance = '0';
+        let html5QrCode;
+        const CONFIG = window.TIMAX_CONFIG;
 
         // --- UI & UTILITY FUNCTIONS --- //
 
         const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
-
-        const showStatus = (message, type = 'loading') => {
-            document.getElementById('status-container').innerHTML = `<div class="status-message status-${type}">${message}</div>`;
-        };
-
-        const hideStatus = () => {
-            document.getElementById('status-container').innerHTML = '';
-        };
-
+        const showStatus = (message, type = 'loading') => { document.getElementById('status-container').innerHTML = `<div class="status-message status-${type}">${message}</div>`; };
+        const hideStatus = () => { document.getElementById('status-container').innerHTML = ''; };
         const showScreen = (id) => {
             ['auth-screen', 'widget-screen'].forEach(sId => document.getElementById(sId).classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
         };
+        const showModal = (id) => document.getElementById(id).classList.remove('hidden');
+        const hideModal = (id) => document.getElementById(id).classList.add('hidden');
 
-        const showWCModal = () => document.getElementById('walletconnect-modal').classList.remove('hidden');
-        const hideWCModal = () => document.getElementById('walletconnect-modal').classList.add('hidden');
+        // --- QR SCANNER --- //
+
+        const startQrScanner = () => {
+            showModal('qr-scanner-modal');
+            html5QrCode = new Html5Qrcode("qr-scanner-container");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            const onScanSuccess = (decodedText) => {
+                document.getElementById('recipient-address').value = decodedText.replace(/ethereum:/i, ''); // Clean up potential prefixes
+                stopQrScanner();
+            };
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(err => {
+                console.error("QR Scanner Error:", err);
+                showStatus('❌ QR Scanner failed to start. Check camera permissions.', 'error');
+                hideModal('qr-scanner-modal');
+            });
+        };
+
+        const stopQrScanner = () => {
+            if (html5QrCode?.isScanning) {
+                html5QrCode.stop().then(() => hideModal('qr-scanner-modal')).catch(err => console.error("Error stopping scanner:", err));
+            } else {
+                hideModal('qr-scanner-modal');
+            }
+        };
 
         // --- WALLET MANAGEMENT --- //
 
@@ -275,107 +275,55 @@
                 document.getElementById('wallet-address').textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
                 showScreen('widget-screen');
-                hideWCModal();
+                hideModal('walletconnect-modal');
                 await populateDropdowns();
                 updateBalance();
                 setupWalletListeners(provider);
-
             } catch (error) {
-                console.error("Error setting up wallet connection:", error);
-                showStatus('❌ Failed to initialize wallet session.', 'error');
+                console.error("Error setting up wallet:", error);
                 disconnectWallet();
             }
         };
 
         const connectWallet = async () => {
             try {
-                showStatus('⏳ Connecting wallet...', 'loading');
-
-                if (!window.ethereum) {
-                    return showStatus(isMobile() ? '❌ No wallet found. Try WalletConnect.' : '❌ Please install a Web3 wallet extension.', 'error');
-                }
-                
+                if (!window.ethereum) return showStatus('❌ Please install a Web3 wallet.', 'error');
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 await onWalletConnected(window.ethereum);
-                
-            } catch (error) {
-                console.error('Browser wallet connection failed:', error);
-                let msg = '❌ Connection failed. ';
-                if (error.code === 4001) msg += 'Please approve the connection request.';
-                else if (error.code === -32002) msg += 'Please check wallet for pending requests.';
-                else msg += 'Please try again.';
-                showStatus(msg, 'error');
-            }
+            } catch (error) { console.error('Wallet connection failed:', error); }
         };
 
         const connectWithWalletConnect = async () => {
-            if (CONFIG.WALLETCONNECT_PROJECT_ID === 'YOUR_WALLETCONNECT_PROJECT_ID') {
-                return showStatus('🔧 Please configure WalletConnect Project ID in the script.', 'error');
-            }
+            if (CONFIG.WALLETCONNECT_PROJECT_ID === 'YOUR_WALLETCONNECT_PROJECT_ID') return showStatus('🔧 WalletConnect Project ID not configured.', 'error');
             try {
                 wcProvider = new WalletConnectProvider.default({
-                    infuraId: null, // Not needed if you provide RPC URLs
-                    rpc: {
-                        1: "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
-                        10: "https://mainnet.optimism.io",
-                        56: "https://bsc-dataseed.binance.org/",
-                        130: "https://rpc.unichain.world/",
-                        137: "https://polygon-rpc.com/",
-                        43114: "https://api.avax.network/ext/bc/C/rpc",
-                        59144: "https://rpc.linea.build",
-                        42161: "https://arb1.arbitrum.io/rpc",
-                        8453: "https://mainnet.base.org",
-                    },
-                    qrcode: false // We handle QR code generation manually
+                    rpc: { 1: "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", 10: "https://mainnet.optimism.io", 56: "https://bsc-dataseed.binance.org/", 130: "https://rpc.unichain.world/", 137: "https://polygon-rpc.com/", 43114: "https://api.avax.network/ext/bc/C/rpc", 59144: "https://rpc.linea.build", 42161: "https://arb1.arbitrum.io/rpc", 8453: "https://mainnet.base.org" },
+                    qrcode: false
                 });
-
                 wcProvider.on("uri", (uri) => {
-                    const qrCode = new QRCodeStyling({
-                        width: 280,
-                        height: 280,
-                        data: uri,
-                        image: "https://li.fi/logo-circle.png",
-                        dotsOptions: { color: "#4f46e5", type: "rounded" },
-                        backgroundOptions: { color: "#ffffff" },
-                        imageOptions: { crossOrigin: "anonymous", margin: 4 }
-                    });
-                    const qrContainer = document.getElementById("qr-code-container");
-                    qrContainer.innerHTML = '';
-                    qrCode.append(qrContainer);
-                    document.getElementById('mobile-connect-link').href = uri; // More generic link for mobile
-                    showWCModal();
+                    new QRCodeStyling({ width: 280, height: 280, data: uri, image: "https://li.fi/logo-circle.png", dotsOptions: { color: "#4f46e5", type: "rounded" }, backgroundOptions: { color: "#ffffff" } }).append(document.getElementById("qr-code-container"));
+                    document.getElementById('mobile-connect-link').href = uri;
+                    showModal('walletconnect-modal');
                 });
-                
-                wcProvider.on("disconnect", () => disconnectWallet());
-
+                wcProvider.on("disconnect", disconnectWallet);
                 await wcProvider.enable();
                 await onWalletConnected(wcProvider);
-
             } catch (error) {
                 console.error("WalletConnect failed:", error);
-                showStatus('❌ WalletConnect connection cancelled or failed.', 'error');
-                hideWCModal();
+                hideModal('walletconnect-modal');
             }
         };
-
 
         const disconnectWallet = async () => {
-            if (wcProvider?.connected) {
-                await wcProvider.disconnect();
-            }
-            currentUser = currentProvider = currentSigner = currentQuote = wcProvider = null;
-            hideStatus();
+            if (wcProvider?.connected) await wcProvider.disconnect();
+            currentUser = currentProvider = currentSigner = selectedRoute = wcProvider = null;
             showScreen('auth-screen');
         };
-        
-        const handleAccountsChanged = (accounts) => accounts.length === 0 ? disconnectWallet() : window.location.reload();
-        const handleChainChanged = () => window.location.reload();
 
         const setupWalletListeners = (provider) => {
-             provider.on('accountsChanged', handleAccountsChanged);
-             provider.on('chainChanged', handleChainChanged);
+            provider.on('accountsChanged', (accounts) => accounts.length === 0 ? disconnectWallet() : window.location.reload());
+            provider.on('chainChanged', () => window.location.reload());
         };
-
 
         // --- DATA & STATE MANAGEMENT --- //
 
@@ -387,195 +335,151 @@
             balanceEl.textContent = 'Balance: ...';
 
             const token = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
-            if (!token) { 
-                balanceEl.textContent = 'Balance: -'; 
-                currentBalance = '0';
-                return; 
-            }
+            if (!token) { balanceEl.textContent = 'Balance: -'; currentBalance = '0'; return; }
 
             try {
                 const balanceBN = token.address === ethers.constants.AddressZero
                     ? await currentProvider.getBalance(currentUser.wallet.address)
                     : await (new ethers.Contract(token.address, ['function balanceOf(address) view returns (uint256)'], currentProvider)).balanceOf(currentUser.wallet.address);
-
                 currentBalance = ethers.utils.formatUnits(balanceBN, token.decimals);
-                balanceEl.textContent = `Balance: ${parseFloat(currentBalance).toFixed(4)}`;
+                const balanceInUsd = parseFloat(currentBalance) * token.priceUSD;
+                balanceEl.textContent = `Balance: ${parseFloat(currentBalance).toFixed(4)} (~$${balanceInUsd.toFixed(2)})`;
             } catch (error) {
                 console.error("Failed to get balance", error);
-                balanceEl.textContent = `Balance: -`;
+                balanceEl.textContent = 'Balance: -';
                 currentBalance = '0';
             }
         };
 
         const populateDropdowns = async () => {
             try {
-                showStatus('⏳ Loading chains and tokens...', 'loading');
-                const [chainsResponse, tokensResponse] = await Promise.all([
-                    fetch(`${CONFIG.LIFI_API_URL}/chains`),
-                    fetch(`${CONFIG.LIFI_API_URL}/tokens`)
-                ]);
-
-                if (!chainsResponse.ok || !tokensResponse.ok) throw new Error('Failed to fetch data from LI.FI API');
-
-                const { chains: availableChains } = await chainsResponse.json();
-                const { tokens } = await tokensResponse.json();
+                const [chainsRes, tokensRes] = await Promise.all([fetch(`${CONFIG.LIFI_API_URL}/chains`), fetch(`${CONFIG.LIFI_API_URL}/tokens`)]);
+                const { chains } = await chainsRes.json();
+                const { tokens } = await tokensRes.json();
                 allTokens = tokens;
-                
                 const chainSet = new Set(CONFIG.LIFI_CHAINS);
-                allChains = CONFIG.LIFI_CHAINS.length > 0 ? availableChains.filter(c => chainSet.has(c.id)) : availableChains;
-
-                const fromChainEl = document.getElementById('from-chain');
-                const toChainEl = document.getElementById('to-chain');
-                [fromChainEl, toChainEl].forEach(el => el.innerHTML = '');
-                allChains.forEach(chain => {
-                    [fromChainEl, toChainEl].forEach(el => el.add(new Option(chain.name, chain.id)));
-                });
-                
-                fromChainEl.value = allChains[0]?.id || 1;
-                toChainEl.value = allChains.find(c => c.id === 137) ? 137 : (allChains[1]?.id || 1);
-
+                allChains = chains.filter(c => chainSet.has(c.id));
+                const [fromChainEl, toChainEl] = [document.getElementById('from-chain'), document.getElementById('to-chain')];
+                [fromChainEl, toChainEl].forEach(el => { el.innerHTML = ''; allChains.forEach(c => el.add(new Option(c.name, c.id))); });
+                fromChainEl.value = 1; toChainEl.value = 137;
                 populateTokenList(fromChainEl.value, 'from-token');
                 populateTokenList(toChainEl.value, 'to-token');
-                hideStatus();
-            } catch(error) { 
-                console.error("Failed to populate dropdowns", error);
-                showStatus(`❌ Failed to load data: ${error.message}`, 'error');
-            }
+            } catch (error) { console.error("Failed to populate dropdowns", error); }
         };
         
         const populateTokenList = (chainId, elementId) => {
             const dropdown = document.getElementById(elementId);
             dropdown.innerHTML = '';
             let chainTokens = allTokens[chainId] || [];
-            
             const tokenSet = new Set(CONFIG.LIFI_TOKENS);
-            if (CONFIG.LIFI_TOKENS.length > 0) {
-                 chainTokens = chainTokens.filter(token => tokenSet.has(token.symbol));
-            }
-            // De-duplicate tokens by symbol to prevent multiple WETH, etc.
-            const addedSymbols = new Set();
-            const uniqueTokens = chainTokens.filter(token => {
-                if (addedSymbols.has(token.symbol)) {
-                    return false;
-                }
-                addedSymbols.add(token.symbol);
-                return true;
-            });
-
-            // Limit to 100 most popular tokens for performance
-            uniqueTokens.slice(0, 100).forEach(token => dropdown.add(new Option(token.symbol, token.symbol)));
+            if (tokenSet.size > 0) chainTokens = chainTokens.filter(t => tokenSet.has(t.symbol));
+            const uniqueTokens = [...new Map(chainTokens.map(t => [t.symbol, t])).values()];
+            uniqueTokens.slice(0, 100).forEach(t => dropdown.add(new Option(t.symbol, t.symbol)));
         };
 
         // --- CORE SWAP LOGIC --- //
 
-        const getQuote = async () => {
+        const getRoutes = async () => {
             const fromAmount = document.getElementById('from-amount').value;
+            if (!fromAmount || parseFloat(fromAmount) <= 0) return;
+
             const fromChain = document.getElementById('from-chain').value;
             const toChain = document.getElementById('to-chain').value;
             const fromTokenSymbol = document.getElementById('from-token').value;
             const toTokenSymbol = document.getElementById('to-token').value;
-
-            if (!fromAmount || parseFloat(fromAmount) <= 0) return;
+            const recipientAddress = document.getElementById('recipient-address').value;
 
             const fromToken = allTokens[fromChain]?.find(t => t.symbol === fromTokenSymbol);
             const toToken = allTokens[toChain]?.find(t => t.symbol === toTokenSymbol);
             if (!fromToken || !toToken) return showStatus('❌ Invalid token selection', 'error');
 
             try {
-                showStatus('⏳ Getting quote...', 'loading');
+                showStatus('⏳ Finding best routes...', 'loading');
                 document.getElementById('swap-btn').disabled = true;
 
-                const fromAmountWei = ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString();
                 const params = new URLSearchParams({
                     fromChain, toChain, fromToken: fromToken.address, toToken: toToken.address,
-                    fromAmount: fromAmountWei, fromAddress: currentUser.wallet.address,
+                    fromAmount: ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString(),
+                    fromAddress: currentUser.wallet.address,
                     integrator: CONFIG.LIFI_INTEGRATOR,
-                    fee: 0.01 // Example: 1% fee on destination
+                    fee: 0.01
                 });
+                if (ethers.utils.isAddress(recipientAddress)) params.set('toAddress', recipientAddress);
 
-                const response = await fetch(`${CONFIG.LIFI_API_URL}/quote?${params}`);
+                const response = await fetch(`${CONFIG.LIFI_API_URL}/routes?${params}`);
                 if (!response.ok) throw new Error(await response.text());
-                currentQuote = await response.json();
-
-                // Update UI with quote details
-                const estAmount = ethers.utils.formatUnits(currentQuote.estimate.toAmount, toToken.decimals);
-                document.getElementById('to-amount').value = parseFloat(estAmount).toFixed(6);
-                const rate = (parseFloat(estAmount) / parseFloat(fromAmount)).toFixed(6);
-                document.getElementById('exchange-rate').textContent = `1 ${fromTokenSymbol} ≈ ${rate} ${toTokenSymbol}`;
-
-                // --- Fee Breakdown Logic ---
-                const feeBreakdownList = document.getElementById('fee-breakdown-list');
-                feeBreakdownList.innerHTML = ''; // Clear previous breakdown
-
-                let totalFeeInUsd = 0;
-
-                // 1. Display Gas Costs
-                currentQuote.estimate.gasCosts?.forEach(cost => {
-                    const gasInNative = ethers.utils.formatUnits(cost.amount, cost.token.decimals);
-                    const gasInUsd = parseFloat(gasInNative) * cost.token.priceUSD;
-                    totalFeeInUsd += gasInUsd;
-                    const feeHtml = `
-                        <div class="flex justify-between items-center">
-                            <span>Network Gas Fee</span>
-                            <span>$${gasInUsd.toFixed(2)} (${parseFloat(gasInNative).toFixed(5)} ${cost.token.symbol})</span>
-                        </div>
-                    `;
-                    feeBreakdownList.insertAdjacentHTML('beforeend', feeHtml);
-                });
-
-                // 2. Display Other Fee Costs (Bridge, Integrator, etc.)
-                currentQuote.estimate.feeCosts?.forEach(fee => {
-                    const feeAmountFormatted = ethers.utils.formatUnits(fee.amount, fee.token.decimals);
-                    const feeInUsd = parseFloat(feeAmountFormatted) * fee.token.priceUSD;
-                    if (feeInUsd < 0.01) return; // Don't show negligible fees
-                    totalFeeInUsd += feeInUsd;
-                    const feeHtml = `
-                        <div class="flex justify-between items-center">
-                            <span>${fee.name}</span>
-                            <span>$${feeInUsd.toFixed(2)} (${parseFloat(feeAmountFormatted).toFixed(5)} ${fee.token.symbol})</span>
-                        </div>
-                    `;
-                    feeBreakdownList.insertAdjacentHTML('beforeend', feeHtml);
-                });
-
-                // 3. Display Total Fee
-                document.getElementById('total-fee-usd').textContent = `≈ $${totalFeeInUsd.toFixed(2)}`;
-
-                document.getElementById('route-info').classList.remove('hidden');
-                document.getElementById('swap-btn').textContent = 'Execute Swap';
-                document.getElementById('swap-btn').disabled = false;
+                const { routes } = await response.json();
+                allRoutes = routes;
+                displayRoutes(routes);
                 hideStatus();
             } catch (error) {
-                console.error('Quote error:', error);
+                console.error('Route error:', error);
                 showStatus(`❌ Quote failed: ${error.message || 'Check console'}`, 'error');
-                document.getElementById('swap-btn').textContent = 'Get Quote';
-                document.getElementById('swap-btn').disabled = false;
+            } finally {
+                updateSwapButtonState();
             }
         };
 
-        const executeSwap = async () => {
-            if (!currentQuote) return;
+        const displayRoutes = (routes) => {
+            const container = document.getElementById('routes-container');
+            container.innerHTML = '';
+            if (routes.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-400">No routes found for this trade.</p>';
+                return;
+            }
+            routes.forEach((route, index) => {
+                const toToken = allTokens[route.toChainId]?.find(t => t.address === route.toToken.address);
+                const outputAmount = ethers.utils.formatUnits(route.toAmount, toToken.decimals);
+                const totalFeeUsd = route.gasCostUSD + route.feeCostUSD;
+                
+                // Add a tag for the best route
+                const bestTag = route.tags?.includes('RECOMMENDED') ? '<span class="route-tag">Best</span>' : '';
 
+                const routeHtml = `
+                    <div class="route-option" data-route-index="${index}">
+                        <div class="flex justify-between items-center">
+                            <div class="font-bold text-lg">${parseFloat(outputAmount).toFixed(5)} ${toToken.symbol}</div>
+                            <div class="flex items-center gap-2">${bestTag} <span class="text-gray-300">~${route.executionDuration}s</span></div>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1 flex justify-between">
+                            <span>via ${route.steps[0].toolDetails.name}</span>
+                            <span>Fee: ~$${totalFeeUsd.toFixed(2)}</span>
+                        </div>
+                    </div>`;
+                container.insertAdjacentHTML('beforeend', routeHtml);
+            });
+            // Auto-select the first (best) route
+            selectRoute(0);
+        };
+
+        const selectRoute = (index) => {
+            selectedRoute = allRoutes[index];
+            document.querySelectorAll('.route-option').forEach((el, i) => {
+                el.classList.toggle('selected', i === index);
+            });
+            document.getElementById('to-amount').value = ethers.utils.formatUnits(selectedRoute.toAmount, selectedRoute.toToken.decimals);
+            updateSwapButtonState();
+        };
+
+        const executeSwap = async () => {
+            if (!selectedRoute) return;
             try {
                 showStatus('⏳ Executing swap... Please confirm in your wallet.', 'loading');
                 document.getElementById('swap-btn').disabled = true;
                 
-                const tx = await currentSigner.sendTransaction(currentQuote.transactionRequest);
-                
-                const fromChainId = currentQuote.action.fromChainId;
-                const sourceChain = allChains.find(c => c.id === fromChainId);
-                const explorerUrl = sourceChain?.metamask?.blockExplorerUrls?.[0] || 'https://etherscan.io'; 
-                const explorerLink = `${explorerUrl.endsWith('/') ? explorerUrl : explorerUrl + '/'}tx/${tx.hash}`;
+                const tx = await currentSigner.sendTransaction(selectedRoute.transactionRequest);
+                const sourceChain = allChains.find(c => c.id === selectedRoute.fromChainId);
+                const explorerUrl = sourceChain?.metamask?.blockExplorerUrls?.[0] || `https://etherscan.io`;
+                const explorerLink = `${explorerUrl}/tx/${tx.hash}`;
 
-                showStatus(`⏳ Tx sent... waiting for confirmation. <a href="${explorerLink}" target="_blank" class="underline">View Explorer</a>`, 'loading');
-                
-                const receipt = await tx.wait();
+                showStatus(`⏳ Tx sent, awaiting confirmation... <a href="${explorerLink}" target="_blank" class="underline">View Explorer</a>`, 'loading');
+                await tx.wait();
                 showStatus(`✅ Swap complete! <a href="${explorerLink}" target="_blank" class="underline">View Receipt</a>`, 'success');
                 
-                // Reset form state after successful swap
-                ['from-amount', 'to-amount'].forEach(id => document.getElementById(id).value = '');
-                document.getElementById('route-info').classList.add('hidden');
-                currentQuote = null;
+                // Reset form state
+                ['from-amount', 'to-amount', 'recipient-address'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('routes-container').innerHTML = '';
+                selectedRoute = null;
                 updateSwapButtonState();
                 updateBalance();
             } catch (error) {
@@ -588,14 +492,14 @@
         const updateSwapButtonState = () => {
             const amount = document.getElementById('from-amount').value;
             const btn = document.getElementById('swap-btn');
+            btn.disabled = true;
             if (!amount || parseFloat(amount) <= 0) {
                 btn.textContent = 'Enter Amount';
-                btn.disabled = true;
-            } else if (currentQuote) {
+            } else if (allRoutes.length > 0 && selectedRoute) {
                 btn.textContent = 'Execute Swap';
                 btn.disabled = false;
             } else {
-                btn.textContent = 'Get Quote';
+                btn.textContent = 'Find Route';
                 btn.disabled = false;
             }
         };
@@ -603,83 +507,50 @@
         // --- APP INITIALIZATION --- //
 
         function initializeApp() {
-            console.log('🚀 Initializing TimaxPaySwap with config:', CONFIG);
-
             // Wallet buttons
             document.getElementById('metamask-option').addEventListener('click', connectWallet);
             document.getElementById('trust-wallet-option').addEventListener('click', connectWithWalletConnect);
             document.getElementById('walletconnect-option').addEventListener('click', connectWithWalletConnect);
             
-            // Modal close button
-            document.getElementById('close-modal-btn').addEventListener('click', hideWCModal);
+            // Modal close buttons
+            document.getElementById('close-wc-modal-btn').addEventListener('click', () => hideModal('walletconnect-modal'));
+            document.getElementById('close-qr-modal-btn').addEventListener('click', stopQrScanner);
 
             // Widget controls
             document.getElementById('disconnect-wallet-btn').addEventListener('click', disconnectWallet);
-            document.getElementById('swap-btn').addEventListener('click', () => currentQuote ? executeSwap() : getQuote());
-            
-            document.getElementById('from-amount').addEventListener('input', () => {
-                currentQuote = null;
-                document.getElementById('route-info').classList.add('hidden');
-                document.getElementById('to-amount').value = '';
-                updateSwapButtonState();
-            });
-            
+            document.getElementById('swap-btn').addEventListener('click', () => selectedRoute ? executeSwap() : getRoutes());
             document.getElementById('max-btn').addEventListener('click', () => { 
                 document.getElementById('from-amount').value = currentBalance;
                 document.getElementById('from-amount').dispatchEvent(new Event('input'));
             });
+            document.getElementById('custom-recipient-toggle').addEventListener('change', (e) => {
+                document.getElementById('custom-recipient-container').classList.toggle('hidden', !e.target.checked);
+            });
+            document.getElementById('scan-qr-btn').addEventListener('click', startQrScanner);
 
-            document.getElementById('swap-direction').addEventListener('click', () => {
-                const fromChain = document.getElementById('from-chain');
-                const toChain = document.getElementById('to-chain');
-                const fromToken = document.getElementById('from-token');
-                const toToken = document.getElementById('to-token');
-
-                [fromChain.value, toChain.value] = [toChain.value, fromChain.value];
-                const [oldFromToken, oldToToken] = [fromToken.value, toToken.value];
-
-                // Trigger events to repopulate lists, which also updates balance
-                fromChain.dispatchEvent(new Event('change'));
-                toChain.dispatchEvent(new Event('change'));
-                
-                // Set swapped token values
-                fromToken.value = oldToToken;
-                toToken.value = oldFromToken;
-
-                // Reset amounts and quote
-                ['from-amount', 'to-amount'].forEach(id => document.getElementById(id).value = '');
-                document.getElementById('route-info').classList.add('hidden');
-                currentQuote = null;
+            const resetState = () => {
+                selectedRoute = null; allRoutes = [];
+                document.getElementById('routes-container').innerHTML = '';
+                document.getElementById('to-amount').value = '';
                 updateSwapButtonState();
+            };
+            document.getElementById('from-amount').addEventListener('input', resetState);
+            ['from-chain', 'to-chain', 'from-token', 'to-token'].forEach(id => document.getElementById(id).addEventListener('change', resetState));
+
+            document.getElementById('routes-container').addEventListener('click', (e) => {
+                const routeCard = e.target.closest('.route-option');
+                if (routeCard) selectRoute(parseInt(routeCard.dataset.routeIndex));
             });
 
-            // Set up chain/token dropdown change listeners
-            ['from-chain', 'to-chain', 'from-token', 'to-token'].forEach(id => {
-                document.getElementById(id).addEventListener('change', () => {
-                    if (id === 'from-chain') populateTokenList(document.getElementById('from-chain').value, 'from-token');
-                    if (id === 'to-chain') populateTokenList(document.getElementById('to-chain').value, 'to-token');
-                    if(id.startsWith('from-')) updateBalance();
-                    // Reset quote if any parameter changes
-                    currentQuote = null; 
-                    document.getElementById('route-info').classList.add('hidden');
-                    updateSwapButtonState();
-                });
-            });
-            
-            // Check for persistent connection
-            if (window.ethereum?.selectedAddress) {
-                connectWallet();
-            } else {
-                showScreen('auth-screen');
-            }
+            document.getElementById('from-chain').addEventListener('change', (e) => { populateTokenList(e.target.value, 'from-token'); updateBalance(); });
+            document.getElementById('to-chain').addEventListener('change', (e) => populateTokenList(e.target.value, 'to-token'));
+            document.getElementById('from-token').addEventListener('change', updateBalance);
+
+            if (window.ethereum?.selectedAddress) connectWallet(); else showScreen('auth-screen');
         }
 
         document.addEventListener('DOMContentLoaded', initializeApp);
-        // --- SCRIPT END --- //
     </script>
 </body>
 </html>
-
-
-
 
