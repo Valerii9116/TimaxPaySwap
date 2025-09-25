@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TimaxPaySwap - Cross-Chain Swaps</title>
+    <link rel="stylesheet" href="./output.css" />
+</head>
+<body class="bg-gray-900 text-white antialiased">
+    <div id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4">
+        <header class="w-full max-w-lg mb-8 text-center">
+            <h1 class="text-5xl font-bold text-gradient mb-2">TimaxPaySwap</h1>
+            <p class="text-gray-300 text-lg">Your gateway to seamless cross-chain swaps.</p>
+        </header>
+
+        <main id="main-content" class="w-full max-w-lg glass-container p-6 md:p-8">
+            <div id="auth-screen" class="text-center">
+                <p class="mb-6 text-gray-200">Connect your wallet to begin.</p>
+                <button id="connect-wallet-btn" class="action-button">Connect Wallet</button>
+            </div>
+            <div id="widget-screen" class="hidden"></div>
+        </main>
+
+        <footer class="mt-8 text-center text-gray-500 text-sm">
+            <p>&copy; 2024 TimaxPaySwap. Powered by <a href="https://li.fi/" target="_blank" class="text-blue-400">LI.FI</a></p>
+        </footer>
+    </div>
+
+    <script type="module" src="./index.js"></script>
+</body>
+</html>

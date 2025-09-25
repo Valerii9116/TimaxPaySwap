@@ -1,17 +1,18 @@
- {
-    "name": "lifi-widget-azure-app",
-    "version": "1.0.0",
-    "description": "Li.Fi Widget integration for Azure Static Web App",
-    "main": "index.html",
-    "scripts": {
-      "build": "echo 'Static HTML build complete'",
-      "start": "echo 'Starting static server'"
-    },
-    "dependencies": {
-    "ethers": "^5.7.2",
-    "@walletconnect/web3-provider": "^1.8.0",
-    "html5-qrcode": "^2.3.8",
-    "qr-code-styling": "^1.5.0"
+{
+  "name": "timaxpay-swap",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tailwindcss -i ./src/styles.css -o ./src/output.css --minify",
+    "start": "live-server ./src"
   },
-    "devDependencies": {}
+  "dependencies": {
+    "@web3modal/standalone": "^2.4.3",
+    "ethers": "^5.7.2"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.0",
+    "live-server": "^1.2.1",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.3.0"
   }
+}
