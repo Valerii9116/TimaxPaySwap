@@ -401,8 +401,8 @@
                     fromChain, toChain, fromToken: fromToken.address, toToken: toToken.address,
                     fromAmount: ethers.utils.parseUnits(fromAmount, fromToken.decimals).toString(),
                     fromAddress: currentUser.wallet.address,
-                    integrator: CONFIG.LIFI_INTEGRATOR,
-                    fee: 0.01
+                    integrator: CONFIG.LIFI_INTEGRATOR
+                    //, fee: 0.01 // Temporarily removed to debug "Not Found" API error
                 });
                 if (ethers.utils.isAddress(recipientAddress)) params.set('toAddress', recipientAddress);
 
@@ -553,4 +553,5 @@
     </script>
 </body>
 </html>
+
 
