@@ -1,18 +1,11 @@
 {
-  "navigationFallback": {
-  "rewrite": "/index.html"
-  },
-  "routes": [
-  {
   "route": "/*",
   "headers": {
-  "Content-Security-Policy": "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; connect-src 'self' https://li.quest wss://*https://www.google.com/search?q=.walletconnect.com wss://https://www.google.com/search?q=relay.walletconnect.com https://www.google.com/search?q=https://explorer-api.walletconnect.com; img-src 'self' data: blob: https://*https://www.google.com/search?q=.walletconnect.com https://li.fi; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
+  "Content-Security-Policy": "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; connect-src 'self' https://li.quest wss://*https://www.google.com/url?sa=E&source=gmail&q=.walletconnect.com wss://https://www.google.com/url?sa=E&source=gmail&q=relay.walletconnect.com https://www.google.com/search?q=https://explorer-api.walletconnect.com; img-src 'self' data: blob: https://*https://www.google.com/url?sa=E&source=gmail&q=.walletconnect.com https://li.fi; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
   "X-Frame-Options": "SAMEORIGIN",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin"
-  }
-  }
-  ],
+  },
   "platform": {
   "apiRuntime": "node:18"
   }
