@@ -24,7 +24,9 @@
         }
         .header-gradient {
             background: linear-gradient(90deg, #4f46e5, #ec4899);
-            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
         .action-button {
             background-color: #4f46e5; color: white; font-weight: 600; padding: 0.75rem 1.5rem;
@@ -74,11 +76,6 @@
         }
         .wallet-option:hover { background: rgba(255,255,255,0.15); }
         .wallet-option:active { transform: scale(0.98); }
-        .config-banner {
-            background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3);
-            border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; text-center;
-            font-size: 0.875rem; color: #4ade80;
-        }
         /* Modal Styles */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -102,7 +99,7 @@
         // 🔧 CONFIGURATION - Update these values with your settings
         window.TIMAX_CONFIG = {
             // Get your project ID from https://cloud.walletconnect.com
-            WALLETCONNECT_PROJECT_ID: 'dc14d146c0227704322ac9a46aaed7cd', // ⚠️ CHANGE THIS
+            WALLETCONNECT_PROJECT_ID: 'YOUR_WALLETCONNECT_PROJECT_ID', // ⚠️ CHANGE THIS
 
             // LI.FI API Settings
             LIFI_API_URL: 'https://li.quest/v1',
@@ -143,10 +140,6 @@
         </header>
 
         <main id="main-content" class="w-full max-w-lg glass-container p-6 md:p-8">
-            <!-- Configuration Notice -->
-            <div class="config-banner">
-                ✅ Configuration loaded successfully from script
-            </div>
 
             <div id="auth-screen" class="text-center">
                 <p class="mb-6 text-gray-200">Connect your wallet to begin swapping assets across any chain, powered by LI.FI.</p>
@@ -188,9 +181,9 @@
                     </div>
                     <div class="token-input-container">
                         <input type="number" placeholder="0.0" class="token-input" id="from-amount" />
-                        <select id="from-token" class="token-selector mr-2"></select>
+                        <select id="from-token" class="token-selector mr-2" aria-label="Select source token"></select>
                     </div>
-                    <select id="from-chain" class="w-full mt-2 token-selector bg-transparent border-none p-0"></select>
+                    <select id="from-chain" class="w-full mt-2 token-selector bg-transparent border-none p-0" aria-label="Select source chain"></select>
                 </div>
 
                 <div class="swap-arrow" id="swap-direction">
@@ -201,9 +194,9 @@
                     <div class="flex justify-between items-center mb-2 text-sm text-gray-400"><span>To (estimated)</span></div>
                     <div class="token-input-container">
                         <input type="number" placeholder="0.0" class="token-input" id="to-amount" readonly/>
-                        <select id="to-token" class="token-selector mr-2"></select>
+                        <select id="to-token" class="token-selector mr-2" aria-label="Select destination token"></select>
                     </div>
-                    <select id="to-chain" class="w-full mt-2 token-selector bg-transparent border-none p-0"></select>
+                    <select id="to-chain" class="w-full mt-2 token-selector bg-transparent border-none p-0" aria-label="Select destination chain"></select>
                 </div>
 
                 <button id="swap-btn" class="action-button w-full mt-6 mb-4" disabled>Enter Amount</button>
@@ -518,7 +511,12 @@
                 document.getElementById('swap-btn').disabled = true;
                 
                 const tx = await currentSigner.sendTransaction(currentQuote.transactionRequest);
-                const explorerLink = currentQuote.toolDetails?.explorer?.txLink(tx.hash) || '#';
+                
+                const fromChainId = currentQuote.action.fromChainId;
+                const sourceChain = allChains.find(c => c.id === fromChainId);
+                const explorerUrl = sourceChain?.metamask?.blockExplorerUrls?.[0] || 'https://etherscan.io'; 
+                const explorerLink = `${explorerUrl.endsWith('/') ? explorerUrl : explorerUrl + '/'}tx/${tx.hash}`;
+
                 showStatus(`⏳ Tx sent... waiting for confirmation. <a href="${explorerLink}" target="_blank" class="underline">View Explorer</a>`, 'loading');
                 
                 const receipt = await tx.wait();
