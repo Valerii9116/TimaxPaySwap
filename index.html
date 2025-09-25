@@ -101,8 +101,8 @@
     <script>
         // 🔧 CONFIGURATION - Update these values with your settings
         window.TIMAX_CONFIG = {
-            // Get your project ID from https://cloud.walletconnect.com
-            WALLETCONNECT_PROJECT_ID: 'dc14d146c0227704322ac9a46aaed7cd', // ⚠️ Using a public demo ID
+            // ⚠️ CRITICAL: Replace this with your own Project ID from https://cloud.walletconnect.com
+            WALLETCONNECT_PROJECT_ID: 'dc14d146c0227704322ac9a46aaed7cd', 
 
             // LI.FI API Settings
             LIFI_API_URL: 'https://li.quest/v1',
@@ -281,6 +281,10 @@
         };
 
         const connectWallet = async () => {
+            if (isMobile() && !window.ethereum) {
+                window.location.href = `https://metamask.app.link/dapp/${window.location.host}`;
+                return;
+            }
             try {
                 if (!window.ethereum) return showStatus('❌ Please install a Web3 wallet.', 'error');
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -289,17 +293,26 @@
         };
 
         const connectWithWalletConnect = async () => {
-            if (CONFIG.WALLETCONNECT_PROJECT_ID === 'YOUR_WALLETCONNECT_PROJECT_ID') return showStatus('🔧 WalletConnect Project ID not configured.', 'error');
+            if (CONFIG.WALLETCONNECT_PROJECT_ID === 'dc14d146c0227704322ac9a46aaed7cd' || !CONFIG.WALLETCONNECT_PROJECT_ID) {
+                return showStatus('🔧 WalletConnect Project ID not configured.', 'error');
+            }
             try {
                 wcProvider = new WalletConnectProvider.default({
                     rpc: { 1: "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", 10: "https://mainnet.optimism.io", 56: "https://bsc-dataseed.binance.org/", 130: "https://rpc.unichain.world/", 137: "https://polygon-rpc.com/", 43114: "https://api.avax.network/ext/bc/C/rpc", 59144: "https://rpc.linea.build", 42161: "https://arb1.arbitrum.io/rpc", 8453: "https://mainnet.base.org" },
-                    qrcode: false
+                    qrcode: false,
+                    clientMeta: {
+                        name: 'TimaxPaySwap',
+                        description: 'Cross-chain swaps powered by LI.FI',
+                        url: window.location.href,
+                        icons: ['https://li.fi/logo-circle.png']
+                    }
                 });
                 wcProvider.on("uri", (uri) => {
                     const qrEl = document.getElementById("qr-code-container");
                     qrEl.innerHTML = '';
                     new QRCodeStyling({ width: 280, height: 280, data: uri, image: "https://li.fi/logo-circle.png", dotsOptions: { color: "#4f46e5", type: "rounded" }, backgroundOptions: { color: "#ffffff" } }).append(qrEl);
-                    document.getElementById('mobile-connect-link').href = uri;
+                    // Use a generic link for mobile to allow wallet choice
+                    document.getElementById('mobile-connect-link').href = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
                     showModal('walletconnect-modal');
                 });
                 wcProvider.on("disconnect", disconnectWallet);
@@ -518,7 +531,7 @@
         function initializeApp() {
             // Wallet buttons
             document.getElementById('metamask-option').addEventListener('click', connectWallet);
-            document.getElementById('trust-wallet-option').addEventListener('click', connectWithWalletConnect);
+            document.getElementById('trust-wallet-option').addEventListener('click', () => isMobile() ? connectWithWalletConnect() : connectWallet());
             document.getElementById('walletconnect-option').addEventListener('click', connectWithWalletConnect);
             
             // Modal close buttons
@@ -570,6 +583,4 @@
     </script>
 </body>
 </html>
-
-
 
